@@ -1,0 +1,3444 @@
+<!DOCTYPE html>
+<!-- PIGCAT拼豆工坊 · 拼豆图纸生成器 · v3 增强版 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIGCAT拼豆工坊 · 拼豆图纸生成器</title>
+<style>
+/* ============================================================
+   字体加载（来自 ./_shared/fonts/）
+   ============================================================ */
+@font-face{font-family:'Instrument';src:url('./_shared/fonts/InstrumentSans-Regular.ttf');font-weight:400}
+@font-face{font-family:'Instrument';src:url('./_shared/fonts/InstrumentSans-Bold.ttf');font-weight:700}
+@font-face{font-family:'Pixel';src:url('./_shared/fonts/PixelifySans-Medium.ttf')}
+
+/* ============================================================
+   设计令牌：暖色调像素风 + 卡通增强
+   ============================================================ */
+:root{
+  --bg:#FFF8EE;
+  --surface:#FFFFFF;
+  --surface-2:#FFF1E0;
+  --surface-3:#FFE4C4;
+  --primary:#FF8C42;
+  --secondary:#FF6B6B;
+  --accent:#FFD93D;
+  --pink:#FFB6C1;
+  --mint:#7FD8A0;
+  --ink:#5C3317;
+  --ink-soft:#8B5A3C;
+  --muted:#B89A7A;
+  --line:#5C3317;
+  --line-soft:#E8D5BD;
+  --shadow:4px 4px 0 rgba(92,51,23,.15);
+  --shadow-sm:2px 2px 0 rgba(92,51,23,.15);
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-btn:8px;
+  --font-display:'Pixel','Courier New',monospace;
+  --font-body:'Courier New','Instrument',monospace;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  background-image:
+    radial-gradient(rgba(255,140,66,.10) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(255,217,61,.08) 1.5px, transparent 1.5px);
+  background-size:28px 28px, 28px 28px;
+  background-position:0 0, 14px 14px;
+  color:var(--ink);
+  font-family:var(--font-body);
+  line-height:1.5;
+  overflow-x:hidden;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:var(--radius-btn)}
+a{color:inherit}
+
+/* ============================================================
+   像素风通用组件
+   ============================================================ */
+.btn{
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  padding:11px 18px;
+  font-family:var(--font-body);
+  font-weight:700;
+  letter-spacing:.02em;
+  box-shadow:3px 3px 0 var(--line);
+  border-radius:var(--radius-btn);
+  transition:transform .06s, box-shadow .06s, background .15s;
+}
+.btn:hover{background:#FF7A28}
+.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--line)}
+.btn-secondary{background:var(--secondary)}
+.btn-secondary:hover{background:#F55A5A}
+.btn-ghost{background:var(--surface);color:var(--ink);border:2px solid var(--line);box-shadow:2px 2px 0 var(--line)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-ghost:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--line)}
+.btn-accent{background:var(--accent);color:var(--ink)}
+.btn-accent:hover{background:#F5CB2E}
+.btn-mint{background:var(--mint);color:#fff}
+.btn-mint:hover{background:#6BC88F}
+
+.card{
+  background:var(--surface);
+  border:2.5px solid var(--line);
+  box-shadow:var(--shadow);
+  border-radius:var(--radius);
+}
+
+/* ============================================================
+   整体布局
+   ============================================================ */
+.shell{min-height:100vh;display:grid;grid-template-columns:264px 1fr;position:relative;z-index:1}
+
+/* 侧边栏 */
+.rail{
+  background:var(--surface-2);
+  border-right:2.5px solid var(--line);
+  padding:20px 18px 18px;
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+  overflow-y:auto;
+}
+/* 品牌区：小熊logo + 文字平行排列 */
+.brand{
+  display:flex;align-items:center;gap:10px;
+  margin:0 4px 20px;
+  padding-bottom:16px;
+  border-bottom:2px dashed var(--line-soft);
+}
+.bear-frame{
+  width:54px;height:54px;
+  background:linear-gradient(135deg,#B3E5FC 0%,#81D4FA 100%);
+  border:3px solid #1A237E;
+  border-radius:8px;
+  flex-shrink:0;
+  box-shadow:var(--shadow-sm);
+  position:relative;
+  overflow:hidden;
+}
+.bear-frame::before{
+  content:'';
+  position:absolute;inset:0;
+  background-image:radial-gradient(rgba(255,255,255,.5) 1px,transparent 1px);
+  background-size:7px 7px;
+  pointer-events:none;
+}
+.bear-logo{
+  width:3px;height:3px;
+  position:absolute;
+  left:0;top:0;
+  z-index:1;
+}
+.brand-text strong{
+  display:block;
+  font-family:var(--font-display);
+  font-size:20px;
+  letter-spacing:.03em;
+  color:var(--ink);
+  line-height:1.1;
+}
+.brand-text small{
+  display:block;
+  font-size:11px;
+  color:var(--ink-soft);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  margin-top:3px;
+}
+
+.nav{display:grid;gap:8px;margin-bottom:18px}
+.nav button{
+  border:2px solid transparent;
+  background:transparent;
+  color:var(--ink-soft);
+  text-align:left;
+  padding:10px 12px;
+  display:flex;align-items:center;gap:10px;
+  font-weight:700;
+  font-size:13px;
+  border-radius:var(--radius-sm);
+  transition:all .12s;
+}
+.nav button:hover{background:var(--surface);border-color:var(--line-soft);transform:translateX(2px)}
+.nav button.active{
+  background:var(--accent);
+  color:var(--ink);
+  border-color:var(--line);
+  box-shadow:var(--shadow-sm);
+}
+.nav .ico{width:20px;text-align:center;font-size:16px}
+
+.rail-bottom{margin-top:auto}
+.usage{border:2px solid var(--line);background:var(--surface);padding:14px;border-radius:var(--radius-sm);box-shadow:var(--shadow-sm)}
+.usage-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:8px}
+.usage-label span:last-child{font-family:var(--font-display);color:var(--primary)}
+.progress{height:10px;background:var(--surface-2);border:2px solid var(--line);overflow:hidden;border-radius:6px}
+.progress i{display:block;width:60%;height:100%;background:var(--primary);border-radius:4px}
+.usage small{display:block;color:var(--muted);font-size:10px;margin-top:8px}
+
+/* ============================================================
+   主区域
+   ============================================================ */
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{
+  height:72px;
+  padding:0 32px;
+  border-bottom:2.5px solid var(--line);
+  background:rgba(255,248,238,.85);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:3;
+  backdrop-filter:blur(4px);
+}
+.crumb{font-size:13px;color:var(--ink-soft);font-weight:700}
+.crumb b{color:var(--ink)}
+.top-actions{display:flex;align-items:center;gap:16px}
+.credits{
+  font-family:var(--font-display);
+  font-size:13px;color:var(--primary);
+  background:var(--surface);
+  border:2px solid var(--line);
+  padding:6px 12px;
+  box-shadow:var(--shadow-sm);
+  border-radius:var(--radius-btn);
+}
+.avatar{
+  width:38px;height:38px;
+  background:var(--secondary);
+  color:#fff;
+  display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:700;
+  border:2px solid var(--line);
+  box-shadow:var(--shadow-sm);
+  border-radius:50%;
+}
+
+.content{padding:28px 32px 60px;max-width:1500px;margin:0 auto;width:100%}
+
+/* 介绍区 - 增强卡通感 */
+.intro{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:24px;flex-wrap:wrap}
+.eyebrow{color:var(--secondary);font-family:var(--font-display);font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+.intro h1{
+  font-family:var(--font-display);
+  font-size:34px;line-height:1.05;margin:8px 0 0;
+  color:var(--ink);letter-spacing:.01em;
+}
+.intro h1 .hl{color:var(--primary)}
+.intro p{color:var(--ink-soft);margin:8px 0 0;font-size:14px}
+
+/* 卡通装饰丝带 */
+.ribbon{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent);
+  border:2px solid var(--line);
+  padding:4px 14px;
+  font-size:12px;font-weight:700;color:var(--ink);
+  box-shadow:var(--shadow-sm);
+  margin-bottom:6px;
+  border-radius:var(--radius-btn);
+}
+.ribbon .dot-s{width:8px;height:8px;background:var(--secondary);border:1px solid var(--line);border-radius:50%}
+
+/* 工作区：画布 + 设置 */
+.studio{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}
+
+.canvas-panel{padding:20px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-head h2{font-family:var(--font-display);font-size:17px;margin:0;display:flex;align-items:center;gap:8px}
+.panel-head h2 .ico-icon{font-size:20px}
+.status{font-family:var(--font-display);font-size:12px;color:var(--secondary);display:flex;gap:7px;align-items:center}
+.dot{width:9px;height:9px;background:var(--secondary);display:inline-block;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+/* 画布容器 */
+.workspace{
+  background:#FFEED9;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(255,140,66,.06) 19px,rgba(255,140,66,.06) 20px),
+    repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(255,140,66,.06) 19px,rgba(255,140,66,.06) 20px);
+  border:2px solid var(--line);
+  height:560px;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  padding:16px;
+  border-radius:var(--radius);
+}
+.workspace.dragover{background:#FFE0C2}
+.workspace.dragover::after{
+  content:'松开即可上传';
+  position:absolute;inset:0;
+  display:grid;place-items:center;
+  background:rgba(255,140,66,.25);
+  font-family:var(--font-display);font-size:22px;color:var(--ink);
+  z-index:5;
+}
+
+/* 空状态 - 始终居中 */
+.empty{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+  max-width:340px;
+  z-index:2;
+}
+.empty .upload-icon{
+  margin:0 auto 16px;
+  width:80px;height:80px;
+  background:var(--accent);
+  border:3px solid var(--line);
+  box-shadow:var(--shadow-sm),inset 0 0 0 4px rgba(255,255,255,.25);
+  display:grid;place-items:center;
+  color:var(--ink);
+  animation:bounce 2s ease-in-out infinite;
+  border-radius:var(--radius);
+  position:relative;
+  cursor:pointer;
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.empty .upload-icon:hover{
+  transform:scale(1.08);
+  box-shadow:var(--shadow),inset 0 0 0 4px rgba(255,255,255,.3);
+}
+.empty .upload-icon:active{
+  transform:scale(.95);
+}
+/* 柔和糖果色装饰圆点 */
+.empty .upload-icon::before,
+.empty .upload-icon::after{
+  content:'';
+  position:absolute;
+  width:10px;height:10px;
+  border-radius:50%;
+  background:#FFB2C3;
+  border:2px solid rgba(92,51,38,.35);
+}
+.empty .upload-icon::before{top:7px;left:7px}
+.empty .upload-icon::after{bottom:7px;right:7px}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.empty h3{font-family:var(--font-display);font-size:18px;margin:0 0 6px}
+.empty p{font-size:12px;color:var(--ink-soft);margin:0 0 18px}
+.file-note{display:block;color:var(--muted);font-size:11px;margin-top:10px}
+
+/* 画布外层 */
+.canvas-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.preview-canvas{
+  display:none;
+  transform-origin:center center;
+  border:2.5px solid var(--line);
+  box-shadow:var(--shadow);
+  background:#fff;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  border-radius:var(--radius-sm);
+}
+
+.canvas-foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:12px;flex-wrap:wrap}
+.canvas-foot .meta{font-size:12px;color:var(--ink-soft);font-weight:700}
+.canvas-foot .meta b{color:var(--primary);font-family:var(--font-display)}
+.canvas-foot .actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* 四风格预览网格 */
+.style-grid{
+  display:none;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  width:100%;height:100%;
+  padding:4px;
+}
+.style-cell{
+  background:#FFF;
+  border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  position:relative;
+  cursor:pointer;
+  transition:border-color .2s,box-shadow .2s;
+}
+.style-cell:hover{border-color:var(--accent)}
+.style-cell.selected{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(255,140,66,.2);
+}
+.style-cell-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 9px;
+  background:var(--surface-2);
+  border-bottom:1.5px solid var(--line-soft);
+}
+.style-cell-head .sname{font-family:var(--font-display);font-size:11px;font-weight:700;color:var(--ink)}
+.style-cell-head .badge{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700}
+.style-cell.s1 .badge{background:#FFD93D;color:#5C3317}
+.style-cell.s2 .badge{background:#FFB6C1;color:#5C3317}
+.style-cell.s3 .badge{background:#7FD8A0;color:#fff}
+.style-cell.s4 .badge{background:#41CCFF;color:#fff}
+.style-cell-canvas{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;min-height:0;padding:4px;
+}
+.style-cell-canvas canvas{
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  transform-origin:center center;
+}
+.style-cell-canvas .bead-canvas{
+  position:absolute;z-index:1;left:50%;top:50%;transform-origin:center center;
+}
+.style-cell-canvas .overlay-canvas{
+  position:absolute;z-index:2;pointer-events:none;
+  left:50%;top:50%;transform-origin:center center;
+}
+/* AI加载动画 */
+.ai-loading-wrap{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(255,248,238,.92);
+  z-index:5;text-align:center;padding:16px;
+}
+.ai-loading-animals{
+  display:flex;gap:12px;margin-bottom:14px;
+}
+.ai-loading-animals .ani{
+  font-size:32px;
+  animation:aiBounce 1.2s ease-in-out infinite;
+}
+.ai-loading-animals .ani:nth-child(2){animation-delay:.15s}
+.ai-loading-animals .ani:nth-child(3){animation-delay:.30s}
+.ai-loading-animals .ani:nth-child(4){animation-delay:.45s}
+.ai-loading-animals .ani:nth-child(5){animation-delay:.60s}
+@keyframes aiBounce{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  25%{transform:translateY(-10px) rotate(-5deg)}
+  50%{transform:translateY(0) rotate(0deg)}
+  75%{transform:translateY(-6px) rotate(5deg)}
+}
+.ai-loading-text{
+  font-family:var(--font-display);font-size:13px;color:var(--primary);
+  font-weight:700;animation:blink 1.4s infinite;
+}
+.ai-loading-sub{
+  font-size:11px;color:var(--ink-soft);margin-top:6px;
+}
+.style-cell-foot{
+  padding:4px 9px 6px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;color:var(--ink-soft);
+}
+.style-cell-foot .meta-mini{font-family:var(--font-display)}
+.style-cell-foot .dl-one{
+  background:var(--primary);color:#fff;border:none;
+  padding:3px 8px;font-size:10px;font-weight:700;
+  border-radius:5px;cursor:pointer;font-family:var(--font-body);
+}
+.style-cell-foot .dl-one:hover{background:#FF7A28}
+.style-cell-foot .dl-one:active{transform:translateY(1px)}
+.style-cell-foot .dl-one:disabled{background:var(--muted);cursor:not-allowed}
+.style-cell-foot .bg-btn{
+  background:transparent;color:var(--ink);
+  border:1.5px solid var(--line);padding:3px 8px;
+  font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;
+  font-family:var(--font-body);transition:all .15s;
+  margin-right:4px;
+}
+.style-cell-foot .bg-btn:hover{border-color:var(--primary);color:var(--primary)}
+.style-cell-foot .bg-btn.active{
+  background:var(--primary);color:#fff;border-color:var(--primary);
+}
+.style-cell.loading::after{
+  content:'生成中...';
+  position:absolute;inset:0;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.85);
+  font-family:var(--font-display);font-size:13px;color:var(--ink-soft);
+  z-index:3;
+  text-align:center;padding:20px;
+}
+.style-cell.loading .style-cell-canvas[data-loading-text]::before{
+  content:attr(data-loading-text);
+  position:absolute;inset:0;
+  display:grid;place-items:center;
+  font-family:var(--font-display);font-size:12px;color:var(--primary);
+  z-index:4;
+  text-align:center;padding:20px;
+  animation:blink 1.4s infinite;
+}
+
+/* 图像调节面板 */
+.adjust-card{padding:16px 20px;margin-top:16px}
+.adjust-card h3{font-family:var(--font-display);font-size:15px;margin:0 0 14px;display:flex;align-items:center;gap:6px}
+.adjust-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 20px}
+.adjust-field label{display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:5px}
+.adjust-field label span{font-family:var(--font-display);color:var(--primary);font-size:11px}
+.adjust-field .range{width:100%;accent-color:var(--primary);height:5px;cursor:pointer}
+@media(max-width:768px){
+  .adjust-grid{grid-template-columns:1fr 1fr}
+}
+
+/* 设置面板 */
+.settings{padding:20px}
+.settings h2{font-family:var(--font-display);font-size:17px;margin:0 0 18px;padding-bottom:12px;border-bottom:2px dashed var(--line-soft);display:flex;align-items:center;gap:8px}
+.field{margin-bottom:18px}
+.field label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:8px}
+.field label span{font-family:var(--font-display);color:var(--primary);font-size:12px}
+.range{width:100%;accent-color:var(--primary);height:6px;cursor:pointer}
+.select{
+  width:100%;
+  background:var(--surface-2);
+  border:2px solid var(--line);
+  padding:9px 10px;
+  font-family:var(--font-body);
+  font-weight:700;font-size:13px;
+  border-radius:var(--radius-btn);
+  box-shadow:var(--shadow-sm);
+}
+.select:focus{outline:2px solid var(--primary)}
+.tip{
+  background:#FFF3D6;border-left:4px solid var(--accent);
+  padding:10px 12px;font-size:11px;color:var(--ink-soft);
+  margin:6px 0 14px;line-height:1.5;
+  border-radius:0 var(--radius-btn) var(--radius-btn) 0;
+}
+.check{display:flex;gap:9px;align-items:center;font-size:12px;color:var(--ink);font-weight:700;margin-top:9px;cursor:pointer}
+.check input{accent-color:var(--primary);width:16px;height:16px}
+
+/* 色号图例卡片 */
+.legend-card{margin-top:22px;padding:18px 22px}
+.legend-card h3{font-family:var(--font-display);font-size:15px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.legend-card h3 span{font-size:11px;color:var(--ink-soft);font-weight:400;font-family:var(--font-body)}
+.legend-grid{display:flex;flex-wrap:wrap;gap:8px}
+.legend-item{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 10px;
+  border:2px solid var(--line-soft);
+  background:var(--surface-2);
+  font-size:11px;
+  border-radius:var(--radius-btn);
+}
+.legend-swatch{width:18px;height:18px;border:1px solid rgba(0,0,0,.25);flex-shrink:0;border-radius:4px}
+.legend-code{font-family:var(--font-display);font-weight:700;color:var(--ink)}
+.legend-count{color:var(--muted);font-size:10px}
+
+/* 最近图纸 - 动态生成 */
+.history{margin-top:22px;padding:20px 22px}
+.history-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.history h2{font-family:var(--font-display);font-size:17px;margin:0;display:flex;align-items:center;gap:8px}
+.history-head a{font-size:12px;color:var(--primary);text-decoration:none;font-weight:700;cursor:pointer}
+.projects{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.project{
+  border:2px solid var(--line);
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  cursor:pointer;
+  transition:transform .12s,box-shadow .12s;
+  border-radius:var(--radius);
+}
+.project:hover{transform:translateY(-3px);box-shadow:4px 6px 0 rgba(92,51,23,.15)}
+.thumb{height:112px;display:grid;place-items:center;background:var(--surface-2);border-bottom:2px solid var(--line-soft);overflow:hidden;border-radius:var(--radius) var(--radius) 0 0}
+.thumb canvas,.thumb img{max-width:90px;max-height:90px;image-rendering:pixelated;border:2px solid var(--line);border-radius:6px}
+.thumb .empty-thumb{width:74px;height:74px;display:grid;place-items:center;background:var(--surface-3);border:2px dashed var(--line-soft);font-size:24px;color:var(--muted);border-radius:var(--radius-sm)}
+.project-info{padding:10px 12px}
+.project-info strong{display:block;font-size:13px;font-family:var(--font-display)}
+.project-info small{color:var(--ink-soft);font-size:10px}
+.project-actions{border-top:2px solid var(--line-soft);padding:7px 12px;display:flex;justify-content:space-between}
+.project-actions button{border:none;background:transparent;color:var(--primary);font-size:11px;font-weight:700;padding:0}
+.empty-history{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px;grid-column:1/-1}
+
+/* 我的图纸弹窗 */
+.patterns-overlay{
+  position:fixed;inset:0;
+  background:rgba(92,51,23,.5);
+  display:none;
+  place-items:center;
+  padding:20px;
+  z-index:50;
+  overflow-y:auto;
+}
+.patterns-overlay.open{display:grid}
+.patterns-box{
+  background:var(--surface);
+  width:min(900px,100%);
+  max-height:85vh;
+  overflow-y:auto;
+  border:2.5px solid var(--line);
+  box-shadow:6px 6px 0 rgba(92,51,23,.25);
+  padding:26px;
+  border-radius:var(--radius);
+}
+.patterns-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.patterns-head h2{margin:0;font-family:var(--font-display);font-size:24px;display:flex;align-items:center;gap:8px}
+.patterns-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.pattern-card{
+  border:2px solid var(--line);
+  background:var(--surface-2);
+  box-shadow:var(--shadow-sm);
+  cursor:pointer;
+  transition:transform .12s;
+  border-radius:var(--radius);
+}
+.pattern-card:hover{transform:translateY(-3px)}
+.pattern-card .pc-thumb{height:140px;display:grid;place-items:center;background:var(--surface);border-bottom:2px solid var(--line-soft);overflow:hidden;border-radius:var(--radius) var(--radius) 0 0}
+.pattern-card .pc-thumb canvas,.pattern-card .pc-thumb img{max-width:120px;max-height:120px;image-rendering:pixelated;border:2px solid var(--line);border-radius:6px}
+.pattern-card .pc-info{padding:10px 12px}
+.pattern-card .pc-info strong{display:block;font-size:13px;font-family:var(--font-display)}
+.pattern-card .pc-info small{color:var(--ink-soft);font-size:10px;display:block;margin-top:2px}
+.pattern-card .pc-actions{border-top:2px solid var(--line-soft);padding:7px 12px;display:flex;gap:10px}
+.pattern-card .pc-actions button{border:none;background:transparent;color:var(--primary);font-size:11px;font-weight:700;padding:0}
+
+/* 付费弹窗 */
+.modal{position:fixed;inset:0;background:rgba(92,51,23,.5);display:none;place-items:center;padding:20px;z-index:50}
+.modal.open{display:grid}
+.modal-box{background:var(--surface);width:min(560px,100%);border:2.5px solid var(--line);box-shadow:6px 6px 0 rgba(92,51,23,.25);padding:26px;border-radius:var(--radius)}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.modal h2{margin:0;font-family:var(--font-display);font-size:24px}
+.close{border:2px solid var(--line);background:var(--surface-2);font-size:18px;color:var(--ink);width:34px;height:34px;box-shadow:var(--shadow-sm);border-radius:var(--radius-btn)}
+.close:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--line)}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+.plan{border:2px solid var(--line);padding:14px;text-align:left;background:var(--surface-2);cursor:pointer;box-shadow:var(--shadow-sm)}
+.plan.selected{border:3px solid var(--primary);padding:13px;background:#FFF3E0}
+.plan strong{display:block;font-size:13px;font-family:var(--font-display)}
+.plan b{display:block;font-size:24px;margin:6px 0;color:var(--primary);font-family:var(--font-display)}
+.plan small{font-size:10px;color:var(--ink-soft);display:block;line-height:1.5}
+.pay{width:100%;background:var(--primary);color:#fff;border:none;padding:14px;font-family:var(--font-display);font-size:15px;box-shadow:var(--shadow)}
+.pay:active{transform:translate(4px,4px);box-shadow:0 0 0 var(--line)}
+.fine{font-size:10px;color:var(--muted);text-align:center;margin:10px 0 0}
+
+/* 图片裁切弹窗 */
+.crop-overlay{
+  position:fixed;inset:0;
+  background:rgba(92,51,23,.55);
+  display:none;align-items:center;justify-content:center;
+  z-index:1000;padding:20px;
+}
+.crop-overlay.open{display:flex}
+.crop-box{
+  background:var(--surface);border:2.5px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:24px;max-width:600px;width:100%;
+}
+.crop-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.crop-area{
+  position:relative;background:#FFEED9;
+  border:2px solid var(--line);border-radius:var(--radius-sm);
+  overflow:visible;display:flex;align-items:center;justify-content:center;
+  min-height:200px;padding:12px;
+}
+.crop-canvas-wrap{
+  position:relative;display:inline-block;line-height:0;
+  overflow:visible;
+}
+.crop-canvas-wrap canvas{display:block;max-width:100%;max-height:380px;border-radius:var(--radius-sm)}
+.crop-rect{
+  position:absolute;border:3px solid var(--primary);
+  box-shadow:0 0 0 9999px rgba(0,0,0,.5);
+  cursor:move;box-sizing:border-box;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none;
+}
+.crop-rect::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.08) 8px,rgba(255,255,255,.08) 16px);
+  pointer-events:none;
+}
+.crop-handle{
+  position:absolute;width:16px;height:16px;
+  background:#fff;border:3px solid var(--primary);
+  border-radius:3px;z-index:10;
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+  touch-action:none;
+}
+.crop-area{touch-action:none}
+.crop-handle-tl{top:-8px;left:-8px;cursor:nwse-resize}
+.crop-handle-tr{top:-8px;right:-8px;cursor:nesw-resize}
+.crop-handle-bl{bottom:-8px;left:-8px;cursor:nesw-resize}
+.crop-handle-br{bottom:-8px;right:-8px;cursor:nwse-resize}
+.crop-handle-t{top:-8px;left:50%;transform:translateX(-50%);cursor:ns-resize}
+.crop-handle-b{bottom:-8px;left:50%;transform:translateX(-50%);cursor:ns-resize}
+.crop-handle-l{left:-8px;top:50%;transform:translateY(-50%);cursor:ew-resize}
+.crop-handle-r{right:-8px;top:50%;transform:translateY(-50%);cursor:ew-resize}
+
+/* Toast */
+.toast{
+  position:fixed;right:24px;bottom:24px;
+  background:var(--ink);color:#fff;
+  padding:12px 18px;font-size:13px;font-weight:700;
+  border:2px solid var(--accent);
+  box-shadow:var(--shadow);
+  display:none;z-index:60;
+  border-radius:var(--radius-btn);
+}
+.toast.show{display:block;animation:pop .2s}
+@keyframes pop{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* 画布放大查看弹窗 */
+.zoom-overlay{
+  position:fixed;inset:0;z-index:2000;
+  background:rgba(20,10,5,.92);
+  display:none;align-items:center;justify-content:center;
+  padding:40px;backdrop-filter:blur(6px);
+}
+.zoom-overlay.open{display:flex}
+.zoom-overlay canvas{
+  max-width:90vw;max-height:85vh;
+  border:3px solid rgba(255,255,255,.2);
+  border-radius:8px;
+  box-shadow:0 8px 60px rgba(0,0,0,.5);
+}
+.zoom-close{
+  position:absolute;top:20px;right:24px;
+  width:44px;height:44px;border:none;
+  background:rgba(255,255,255,.15);color:#fff;
+  font-size:24px;border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+}
+.zoom-close:hover{background:rgba(255,255,255,.3)}
+
+/* 装饰层：随机像素小动物 */
+.decor{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.decor .sprite{position:absolute;opacity:.5}
+.decor .sprite.s2{opacity:.35}
+.decor .sprite.s3{opacity:.6}
+@keyframes floatDeco{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-12px) rotate(5deg)}}
+
+/* 卡通装饰角标 */
+.corner-deco{
+  position:absolute;
+  font-size:20px;
+  opacity:.3;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* 卡通贴纸效果 */
+.sticker{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--pink);
+  border:2px solid var(--line);
+  padding:3px 10px;
+  font-size:11px;font-weight:700;color:var(--ink);
+  box-shadow:var(--shadow-sm);
+  transform:rotate(-2deg);
+  border-radius:var(--radius-btn);
+}
+
+/* 响应式 */
+@media(max-width:980px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:none;border-bottom:3px solid var(--line)}
+  .topbar{padding:0 18px}
+  .content{padding:22px 16px 40px}
+  .studio{grid-template-columns:1fr}
+  .settings{order:-1}
+  .projects{grid-template-columns:1fr 1fr}
+  .workspace{height:460px}
+}
+@media(max-width:560px){
+  .intro h1{font-size:26px}
+  .projects{grid-template-columns:1fr}
+  .plans{grid-template-columns:1fr}
+  .top-actions .credits{display:none}
+  .workspace{height:380px}
+}
+</style>
+</head>
+<body>
+
+<!-- 装饰层：由 JS 随机撒入像素小动物 -->
+<div class="decor" id="decor"></div>
+
+<div class="shell">
+  <!-- 侧边栏 -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="bear-frame">
+        <div class="bear-logo" id="bearLogo"></div>
+      </div>
+      <div class="brand-text">
+        <strong>PIGCAT</strong>
+        <small>拼豆工坊</small>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="active" id="navNew"><span class="ico">&#x1F3E0;</span>新建图纸</button>
+      <button id="navMyPatterns"><span class="ico">&#x1F4DA;</span>我的图纸</button>
+    </nav>
+    <div class="rail-bottom">
+      <div class="usage">
+        <div class="usage-label"><span>卡密状态</span><span id="usageCount">0 次可用</span></div>
+        <div class="progress"><i id="usageBar" style="width:0%"></i></div>
+        <small id="usageHint">输入卡密后可按套餐生成</small>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">工作台 / <b id="crumbTitle">新建图纸</b></div>
+      <div class="top-actions">
+        <span class="credits" id="creditsDisplay">&#x25CF; <span id="creditsCount">0</span> 次可用</span>
+        <div class="avatar">P</div>
+      </div>
+    </header>
+
+    <div class="content" id="mainContent">
+      <div class="intro">
+        <div>
+          <div class="ribbon"><span class="dot-s"></span> PIGCAT 拼豆图纸生成器</div>
+          <h1>把照片，变成一块<br><span class="hl">可以触摸的像素。</span></h1>
+          <p>上传图片，选择真实拼豆品牌色卡，生成可打印的像素拼豆图纸。</p>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <span class="sticker">&#x2728; 像素风</span>
+            <span class="sticker" style="background:var(--mint);color:#fff;transform:rotate(1deg)">&#x1F3A8; 多品牌色卡</span>
+            <span class="sticker" style="background:var(--accent);transform:rotate(-1deg)">&#x1F4DC; 可打印导出</span>
+          </div>
+        </div>
+        <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+          <div style="position:absolute;top:0;left:10px;font-size:28px;animation:bounce 2s ease-in-out infinite">&#x2B50;</div>
+          <div style="position:absolute;top:30px;right:0;font-size:22px;animation:bounce 2.5s ease-in-out infinite .3s">&#x1F33C;</div>
+          <div style="position:absolute;bottom:10px;left:20px;font-size:26px;animation:bounce 3s ease-in-out infinite .6s">&#x1F43B;</div>
+          <div style="position:absolute;bottom:0;right:15px;font-size:20px;animation:bounce 2.2s ease-in-out infinite .9s">&#x2764;</div>
+        </div>
+      </div>
+
+      <section class="studio">
+        <!-- 画布面板 -->
+        <div class="canvas-panel card">
+          <div class="panel-head">
+            <h2><span class="ico-icon">&#x1F3A8;</span> 预览画布</h2>
+            <div class="status"><i class="dot"></i><span id="statusText">等待上传</span></div>
+          </div>
+          <div class="workspace" id="dropzone">
+            <div class="empty" id="emptyState">
+              <div class="upload-icon" aria-hidden="true">
+                <svg width="48" height="48" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img">
+                  <defs>
+                    <linearGradient id="uploadHand" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FF8F55"/><stop offset="1" stop-color="#F36F8E"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M32 9c-2.9 0-5.2 2.3-5.2 5.2v16.5l-3.6-3.6a5.2 5.2 0 0 0-7.4 7.4L30 48.7a5.2 5.2 0 0 0 7.4 0l14.2-14.2a5.2 5.2 0 0 0-7.4-7.4l-3.6 3.6V14.2C40.6 11.3 38.3 9 35.4 9H32Z" fill="url(#uploadHand)" stroke="#5C3326" stroke-width="3.2" stroke-linejoin="round"/>
+                  <path d="M15 51.5h34" fill="none" stroke="#5C3326" stroke-width="4.5" stroke-linecap="round"/>
+                  <circle cx="47" cy="15" r="4" fill="#FFF4B8" stroke="#5C3326" stroke-width="2.4"/>
+                </svg>
+              </div>
+              <h3>从一张照片开始</h3>
+              <p>拖拽图片到这里，或点击选择本地文件</p>
+              <button class="btn" id="uploadBtn">选择图片</button>
+              <input type="file" id="fileInput" accept="image/png,image/jpeg" hidden>
+              <span class="file-note">JPG / PNG &#xB7; 上传图片要在15mb以内哦~</span>
+            </div>
+            <div class="style-grid" id="styleGrid"></div>
+          </div>
+          <div class="canvas-foot">
+            <span class="meta" id="metaText">尚未生成图纸</span>
+            <div class="actions">
+              <button class="btn btn-ghost" id="reuploadBtn" style="display:none">&#x21BA; 重新上传</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 设置面板 -->
+        <aside class="settings card">
+          <h2>&#x2699;&#xFE0F; 图纸参数</h2>
+          <div class="field">
+            <label>拼豆板子尺寸 <span id="sizeValue">52 × 52</span></label>
+            <select class="select" id="boardSizeSelect">
+              <option value="52">小板 52 × 52</option>
+              <option value="78">中板 78 × 78</option>
+              <option value="104">大板 104 × 104</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>颜色数量 <span id="colorValue">24 色</span></label>
+            <input class="range" id="colorRange" type="range" min="8" max="40" value="24">
+          </div>
+          <div class="field">
+            <label>拼豆品牌</label>
+            <select class="select" id="brandSelect">
+              <option value="mard">MARD 拼豆</option>
+              <option value="huangdoudou">黄豆豆拼豆</option>
+              <option value="coco">COCO 拼豆</option>
+              <option value="mixiaowo">咪小窝拼豆</option>
+            </select>
+          </div>
+          <div class="tip">图纸含多级网格线、色号标注与用量清单，可直接用于手工制作。</div>
+          <label class="check"><input type="checkbox" id="gridCheck" checked> 显示网格线</label>
+          <label class="check"><input type="checkbox" id="labelCheck" checked> 标注色号</label>
+          <label class="check"><input type="checkbox" id="rulerCheck" checked> 显示坐标标尺</label>
+        </aside>
+      </section>
+
+      <!-- 图像调节面板 -->
+      <section class="adjust-card card" id="adjustCard" style="display:none">
+        <h3>&#x1F3A8; 图像调节</h3>
+        <div class="adjust-grid">
+          <div class="adjust-field">
+            <label>对比度 <span id="contrastVal">100%</span></label>
+            <input class="range" id="contrastRange" type="range" min="50" max="150" value="100">
+          </div>
+          <div class="adjust-field">
+            <label>锐化度 <span id="sharpenVal">0</span></label>
+            <input class="range" id="sharpenRange" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="adjust-field">
+            <label>亮度 <span id="brightnessVal">100%</span></label>
+            <input class="range" id="brightnessRange" type="range" min="50" max="150" value="100">
+          </div>
+          <div class="adjust-field">
+            <label>阴影 <span id="shadowVal">0</span></label>
+            <input class="range" id="shadowRange" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="adjust-field">
+            <label>饱和度 <span id="saturationVal">100%</span></label>
+            <input class="range" id="saturationRange" type="range" min="0" max="200" value="100">
+          </div>
+          <div class="adjust-field" style="display:flex;align-items:flex-end">
+            <button class="btn btn-ghost" id="resetAdjustBtn" style="font-size:11px;padding:6px 12px">重置</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 背景去除强度调节面板 -->
+      <section class="adjust-card card" id="bgSliderWrap" style="display:none">
+        <h3>&#x2702; 背景去除强度</h3>
+        <div class="adjust-field" style="margin-bottom:0">
+          <label>强度 <span id="bgStrengthVal">45</span> <span style="font-size:10px;color:var(--ink-soft);font-weight:400">（值越大去除越多）</span></label>
+          <input class="range" id="bgStrengthSlider" type="range" min="15" max="120" value="45">
+        </div>
+      </section>
+
+      <!-- 色号图例 -->
+      <section class="legend-card card" id="legendCard" style="display:none">
+        <h3>&#x1F539; 色号图例 <span id="legendSummary"></span></h3>
+        <div class="legend-grid" id="legendGrid"></div>
+      </section>
+
+      <!-- 最近图纸 -->
+      <section class="history card">
+        <div class="history-head">
+          <h2>&#x1F4C4; 最近图纸</h2>
+          <a id="viewAllLink">查看全部 →</a>
+        </div>
+        <div class="projects" id="recentProjects">
+          <div class="empty-history">还没有生成过图纸，上传一张图片开始吧！</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- 我的图纸弹窗 -->
+<div class="patterns-overlay" id="patternsOverlay">
+  <div class="patterns-box">
+    <div class="patterns-head">
+      <h2>&#x1F4DA; 我的图纸</h2>
+      <button class="close" id="closePatterns">&#x00D7;</button>
+    </div>
+    <div class="patterns-grid" id="patternsGrid">
+      <div class="empty-history">还没有保存的图纸，生成图纸后会自动记录在这里。</div>
+    </div>
+  </div>
+</div>
+
+<!-- 卡密输入弹窗 -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">PIGCAT 卡密验证</div>
+        <h2>请输入卡密</h2>
+      </div>
+      <button class="close" id="closeModal" style="display:none">&#x00D7;</button>
+    </div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 18px;line-height:1.6">每张卡密可生成对应次数的图纸。每次生成图纸消耗 1 次，剩余次数用完后卡密失效。请从卡密生成器获取卡密。</p>
+    <div style="margin-bottom:16px">
+      <input type="text" id="cardKeyInput" placeholder="例如：PC-XXXX-XXXX-XXXX" style="width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-display);font-size:16px;font-weight:700;text-align:center;letter-spacing:.05em;background:var(--surface-2);box-shadow:var(--shadow-sm);text-transform:uppercase" maxlength="19">
+    </div>
+    <button class="pay" id="payBtn" style="width:100%;background:var(--primary);color:#fff;border:none;padding:14px;font-family:var(--font-display);font-size:15px;box-shadow:var(--shadow);border-radius:var(--radius-btn)">验证卡密</button>
+    <p class="fine">卡密由管理员通过卡密生成器生成，支持 1、3、5、10 次用量。</p>
+  </div>
+</div>
+
+<!-- 图片裁切弹窗 -->
+<div class="crop-overlay" id="cropOverlay">
+  <div class="crop-box">
+    <div class="crop-head">
+      <div>
+        <div class="eyebrow">图片裁切</div>
+        <h2>选择转换区域</h2>
+      </div>
+      <button class="close" id="closeCropBtn">&#x00D7;</button>
+    </div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 18px;line-height:1.6">拖动方框选择要转换的角色或物体区域，支持任意矩形裁切。四角和四边均可拖拽调整大小。</p>
+    <div class="crop-area" id="cropArea">
+      <div class="crop-canvas-wrap" id="cropCanvasWrap">
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-rect" id="cropRect">
+          <div class="crop-handle crop-handle-tl"></div>
+          <div class="crop-handle crop-handle-tr"></div>
+          <div class="crop-handle crop-handle-bl"></div>
+          <div class="crop-handle crop-handle-br"></div>
+          <div class="crop-handle crop-handle-t"></div>
+          <div class="crop-handle crop-handle-b"></div>
+          <div class="crop-handle crop-handle-l"></div>
+          <div class="crop-handle crop-handle-r"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-ghost" id="skipCropBtn" style="flex:1">使用完整图片</button>
+      <button class="btn" id="confirmCropBtn" style="flex:1;background:var(--primary);color:#fff">确认裁切</button>
+    </div>
+  </div>
+</div>
+
+<!-- 提示词输入弹窗 -->
+<div class="crop-overlay" id="promptOverlay">
+  <div class="crop-box" style="max-width:500px">
+    <div class="crop-head">
+      <div>
+        <div class="eyebrow">AI生成描述</div>
+        <h2>描述你想要的效果</h2>
+      </div>
+      <button class="close" id="closePromptBtn">&#x00D7;</button>
+    </div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 8px;line-height:1.6">在下方输入框描述你想把图片变成什么样子，例如"变成赛博朋克风格"、"变成水墨画风格"等。</p>
+    <p style="font-size:12px;color:var(--primary);margin:0 0 14px;line-height:1.5;font-weight:600">&#x26A0;&#xFE0F; 提示词描述需简洁明了，描述模糊或过于赘述会影响生成质量</p>
+    <div style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--ink-soft)">请输入描述（50字以内）</span>
+      <span id="promptCharCount" style="font-size:12px;color:var(--ink-soft)">0 / 50</span>
+    </div>
+    <textarea id="userPromptInput" placeholder="例如：变成可爱的日系动漫风格" maxlength="50" style="width:100%;min-height:80px;padding:12px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-display);font-size:14px;resize:vertical;background:var(--surface-2);box-shadow:var(--shadow-sm);line-height:1.5"></textarea>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-ghost" id="skipPromptBtn" style="flex:1">跳过描述</button>
+      <button class="btn" id="startGenerateBtn" style="flex:1;background:var(--primary);color:#fff">开始生成</button>
+    </div>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="sharpenFilter">
+      <feConvolveMatrix id="sharpenMatrix" order="3" kernelMatrix="0 0 0 0 1 0 0 0 0" preserveAlpha="true"/>
+    </filter>
+  </defs>
+</svg>
+<div class="toast" id="toast"></div>
+
+<!-- 画布放大查看弹窗 -->
+<div class="zoom-overlay" id="zoomOverlay">
+  <button class="zoom-close" id="zoomClose">&#x00D7;</button>
+  <canvas id="zoomCanvas"></canvas>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   一、四个真实拼豆品牌色卡
+   ============================================================ */
+
+// MARD 拼豆（字母+数字格式，221色标准版，此处精选42色）
+var MARD_PALETTE = [
+  {code:'A1',hex:'#FAF4C8'},{code:'A3',hex:'#FEFF8B'},{code:'A4',hex:'#FBED56'},{code:'A5',hex:'#F4D738'},
+  {code:'A7',hex:'#FE8B4C'},{code:'A10',hex:'#F77C31'},{code:'A14',hex:'#FD543D'},
+  {code:'B1',hex:'#E6EE31'},{code:'B2',hex:'#63F347'},{code:'B5',hex:'#35E352'},{code:'B8',hex:'#1C9C4F'},{code:'B9',hex:'#27523A'},
+  {code:'C4',hex:'#41CCFF'},{code:'C5',hex:'#01ACEB'},{code:'C8',hex:'#0F54C0'},{code:'C16',hex:'#1858A2'},
+  {code:'D5',hex:'#B843C5'},{code:'D6',hex:'#AC7BDE'},{code:'D10',hex:'#361851'},{code:'D13',hex:'#B90095'},
+  {code:'E1',hex:'#FDD3CC'},{code:'E4',hex:'#E8649E'},{code:'E5',hex:'#F551A2'},{code:'E13',hex:'#B5006D'},
+  {code:'F2',hex:'#FC3D46'},{code:'F4',hex:'#FC283C'},{code:'F5',hex:'#E7002F'},{code:'F8',hex:'#971937'},
+  {code:'G5',hex:'#EDB045'},{code:'G6',hex:'#E99C17'},{code:'G7',hex:'#9D5B3E'},{code:'G8',hex:'#753832'},
+  {code:'H1',hex:'#FDFBFF'},{code:'H3',hex:'#B6B1BA'},{code:'H5',hex:'#48464E'},{code:'H6',hex:'#2F2B2F'},{code:'H7',hex:'#000000'},
+  {code:'M1',hex:'#BCC6B8'},{code:'M4',hex:'#E3D2BC'},{code:'M11',hex:'#9D7693'},{code:'M13',hex:'#C79266'}
+];
+
+// 黄豆豆/DODO 拼豆
+var HUANGDOUDOU_PALETTE = [
+  {code:'A1',hex:'#F8EFC0'},{code:'A3',hex:'#FCF582'},{code:'A4',hex:'#F5E850'},{code:'A5',hex:'#EFD430'},
+  {code:'A7',hex:'#FE8345'},{code:'A10',hex:'#F6742A'},{code:'A14',hex:'#FC4D38'},
+  {code:'B1',hex:'#DEE628'},{code:'B2',hex:'#55ED3B'},{code:'B5',hex:'#28DA47'},{code:'B8',hex:'#189045'},{code:'B9',hex:'#224A34'},
+  {code:'C4',hex:'#36C2F5'},{code:'C5',hex:'#019FDA'},{code:'C8',hex:'#0C4DB0'},{code:'C16',hex:'#154F92'},
+  {code:'D5',hex:'#AC38BA'},{code:'D6',hex:'#A06DD2'},{code:'D10',hex:'#30154A'},{code:'D13',hex:'#A50380'},
+  {code:'E1',hex:'#FBC8C0'},{code:'E4',hex:'#DC5592'},{code:'E5',hex:'#EE4598'},{code:'E13',hex:'#A50260'},
+  {code:'F2',hex:'#F83340'},{code:'F4',hex:'#F81E34'},{code:'F5',hex:'#D8002A'},{code:'F8',hex:'#871430'},
+  {code:'G5',hex:'#E5A53A'},{code:'G6',hex:'#D9900E'},{code:'G7',hex:'#92523A'},{code:'G8',hex:'#683A2A'},
+  {code:'H1',hex:'#FDFBFF'},{code:'H3',hex:'#ABA6B0'},{code:'H5',hex:'#424048'},{code:'H6',hex:'#2A2830'},{code:'H7',hex:'#050505'},
+  {code:'M1',hex:'#B2BCAC'},{code:'M4',hex:'#D9C8B2'},{code:'M11',hex:'#946E8B'},{code:'M13',hex:'#BD8860'}
+];
+
+// COCO 拼豆（字母+两位数字格式）
+var COCO_PALETTE = [
+  {code:'A01',hex:'#FEFFFF'},{code:'A02',hex:'#FDFBFF'},{code:'B03',hex:'#B6B1BA'},{code:'B05',hex:'#89858C'},
+  {code:'B06',hex:'#48464E'},{code:'B07',hex:'#2F2B2F'},{code:'B09',hex:'#000000'},
+  {code:'C01',hex:'#FD4E6A'},{code:'C02',hex:'#FC3D46'},{code:'C06',hex:'#FC283C'},{code:'C07',hex:'#E7002F'},
+  {code:'C08',hex:'#D30022'},{code:'C10',hex:'#971937'},
+  {code:'D03',hex:'#F4D738'},{code:'D05',hex:'#FEAC4C'},{code:'D06',hex:'#F99C5F'},{code:'D07',hex:'#F77C31'},{code:'D08',hex:'#FE8B4C'},
+  {code:'E01',hex:'#FFFFD5'},{code:'E02',hex:'#FAF4C8'},{code:'E05',hex:'#FEFF8B'},{code:'E07',hex:'#FBED56'},
+  {code:'F05',hex:'#E6EE31'},{code:'F08',hex:'#63F347'},{code:'F11',hex:'#1C9C4F'},{code:'F15',hex:'#27523A'},
+  {code:'H05',hex:'#41CCFF'},{code:'H07',hex:'#01ACEB'},{code:'H14',hex:'#0F54C0'},{code:'H18',hex:'#1858A2'},
+  {code:'J08',hex:'#AC7BDE'},{code:'J12',hex:'#B843C5'},{code:'J16',hex:'#361851'},{code:'J20',hex:'#B5038D'},
+  {code:'K01',hex:'#FDD3CC'},{code:'K15',hex:'#FCC1DD'},{code:'K19',hex:'#F551A2'},{code:'K24',hex:'#B5006D'},
+  {code:'Z10',hex:'#EDB045'},{code:'Z18',hex:'#9D5B3E'}
+];
+
+// 咪小窝拼豆（纯数字格式）
+var MIXIAOWO_PALETTE = [
+  {code:'1',hex:'#FDFBFF'},{code:'15',hex:'#FBFBFB'},{code:'65',hex:'#B6B1BA'},{code:'70',hex:'#2F2B2F'},{code:'14',hex:'#000000'},
+  {code:'31',hex:'#FC3D46'},{code:'5',hex:'#E7002F'},{code:'88',hex:'#971937'},
+  {code:'77',hex:'#FAF5CD'},{code:'28',hex:'#FCFF92'},{code:'3',hex:'#F7EC5C'},{code:'79',hex:'#FFE44B'},{code:'29',hex:'#FDA951'},
+  {code:'96',hex:'#F47E36'},{code:'4',hex:'#FA8C4F'},{code:'97',hex:'#F99C5F'},{code:'135',hex:'#F85842'},
+  {code:'33',hex:'#63F347'},{code:'10',hex:'#1C9C4F'},{code:'45',hex:'#27523A'},{code:'150',hex:'#FBF65E'},
+  {code:'82',hex:'#41CCFF'},{code:'90',hex:'#01ACEB'},{code:'71',hex:'#0F54C0'},{code:'85',hex:'#1858A2'},
+  {code:'36',hex:'#AC7BDE'},{code:'32',hex:'#B843C5'},{code:'95',hex:'#361851'},{code:'100',hex:'#B5038D'},
+  {code:'38',hex:'#FCC1DD'},{code:'6',hex:'#F551A2'},{code:'42',hex:'#B5006D'},
+  {code:'43',hex:'#EDB045'},{code:'17',hex:'#9D5B3E'},{code:'12',hex:'#713D2F'},{code:'75',hex:'#C79266'}
+];
+
+var BRANDS = {
+  mard:{name:'MARD拼豆',palette:MARD_PALETTE},
+  huangdoudou:{name:'黄豆豆拼豆',palette:HUANGDOUDOU_PALETTE},
+  coco:{name:'COCO拼豆',palette:COCO_PALETTE},
+  mixiaowo:{name:'咪小窝拼豆',palette:MIXIAOWO_PALETTE}
+};
+
+function hexToRgb(hex){
+  var h=hex.replace('#','');
+  return{r:parseInt(h.substr(0,2),16),g:parseInt(h.substr(2,2),16),b:parseInt(h.substr(4,2),16)};
+}
+function buildPaletteRgb(brand){
+  return brand.palette.map(function(c){
+    var rgb=hexToRgb(c.hex);
+    return{code:c.code,hex:c.hex,r:rgb.r,g:rgb.g,b:rgb.b};
+  });
+}
+
+/* ============================================================
+   二、颜色工具
+   ============================================================ */
+function colorDist(r1,g1,b1,r2,g2,b2){
+  var dr=r1-r2,dg=g1-g2,db=b1-b2;
+  return dr*dr+dg*dg+db*db;
+}
+function luminance(r,g,b){return 0.299*r+0.587*g+0.114*b;}
+
+/* ============================================================
+   三、选色
+   ============================================================ */
+function selectBeadColors(data,paletteRgb,maxColors){
+  /* 性能优化：预提取palette的RGB值到扁平数组，避免循环中重复对象属性访问 */
+  var plen=paletteRgb.length;
+  var pR=new Array(plen),pG=new Array(plen),pB=new Array(plen),pCode=new Array(plen);
+  for(var pi=0;pi<plen;pi++){
+    var pp=paletteRgb[pi];
+    pR[pi]=pp.r;pG[pi]=pp.g;pB[pi]=pp.b;pCode[pi]=pp.code;
+  }
+  var votes={};
+  var i,len=data.length;
+  for(i=0;i<len;i+=4){
+    var r=data[i],g=data[i+1],b=data[i+2];
+    var bestDist=Infinity,bestIdx=0;
+    for(var j=0;j<plen;j++){
+      var d=colorDist(r,g,b,pR[j],pG[j],pB[j]);
+      if(d<bestDist){bestDist=d;bestIdx=j;}
+    }
+    var code=pCode[bestIdx];
+    votes[code]=(votes[code]||0)+1;
+  }
+  var sorted=Object.keys(votes).map(function(k){return{code:k,count:votes[k]};}).sort(function(a,b){return b.count-a.count;});
+  var limit=Math.min(maxColors,plen);
+  var selected=sorted.slice(0,limit).map(function(item){
+    return paletteRgb.find(function(p){return p.code===item.code;});
+  });
+  return selected;
+}
+
+/* ============================================================
+   四、量化
+   ============================================================ */
+function quantize(data,palette){
+  /* 性能优化：预提取palette的RGB值到扁平数组 */
+  var plen=palette.length;
+  var pR=new Array(plen),pG=new Array(plen),pB=new Array(plen),pCode=new Array(plen);
+  for(var pi=0;pi<plen;pi++){
+    var pp=palette[pi];
+    pR[pi]=pp.r;pG[pi]=pp.g;pB[pi]=pp.b;pCode[pi]=pp.code;
+  }
+  var grid=[];
+  var counts={};
+  var i,len=data.length;
+  for(i=0;i<len;i+=4){
+    var r=data[i],g=data[i+1],b=data[i+2];
+    var bestDist=Infinity,bestIdx=0;
+    for(var j=0;j<plen;j++){
+      var d=colorDist(r,g,b,pR[j],pG[j],pB[j]);
+      if(d<bestDist){bestDist=d;bestIdx=j;}
+    }
+    grid.push(bestIdx);
+    var code=pCode[bestIdx];
+    counts[code]=(counts[code]||0)+1;
+  }
+  return{grid:grid,counts:counts};
+}
+
+/* ============================================================
+   四、Q版四风格定义与图像增强管线
+   ============================================================ */
+var STYLE_DEFS=[
+  {key:'direct',name:'直接像素化',badge:'A',cls:'s1'},
+  {key:'ai',name:'AI卡通化',badge:'B',cls:'s2'}
+];
+
+/* ============================================================
+   AI卡通化API调用
+   ============================================================ */
+/*
+ * 策略：优先直接调用上游AI API（绕过代理限制）
+ * 如果直接调用失败（如CORS），回退到后端代理
+ */
+/* 拼豆图纸基础提示词（与优化后的用户提示词结合使用） */
+var BEAD_BASE_PROMPT='把参考图转换为适合制作拼豆的简化卡通像素图。目标尺寸为 104×104方格，每个方格严格对应一颗拼豆。保留主体的清晰轮廓、主要颜色和最具辨识度的特征，并将角色可爱卡通化，删除所有细小纹理和无意义细节。使用不超过18种纯色，大色块构成，颜色分布清晰，高对比度，主体居中。所有边缘必须是规则方格硬边，颜色块对齐网格，不允许半格或碎片化像素。无渐变、无抗锯齿、无模糊、无透明、无噪点、无抖动填色、无细密纹理、无复杂光影。最终效果应当像一张可以直接数格制作的拼豆图纸，而不是普通装饰性像素画，最终去除所有网格线。';
+
+var AI_API_DIRECT={
+  baseUrl:'https://api.lk888.ai',
+  apiKey:'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
+  model:'gpt-image-2',
+  prompt:BEAD_BASE_PROMPT,
+  size:'auto',
+  quality:'auto'
+};
+var AI_CARTOONIZE_URL='/api/cartoonize';
+
+/* 构建完整提示词：用户需求 + 拼豆基础提示词 */
+function buildFullPrompt(){
+  if(userPromptText&&userPromptText.length>0){
+    return userPromptText+'。'+BEAD_BASE_PROMPT;
+  }
+  return BEAD_BASE_PROMPT;
+}
+
+function aiCartoonize(imageDataUrl){
+  /* 策略1：直接调用上游AI API（绕过代理，避免POST被拦截） */
+  console.log('[PIGCAT] 尝试直接调用上游AI API...');
+  return aiCartoonizeDirect(imageDataUrl)
+    .catch(function(directErr){
+      console.warn('[PIGCAT] 直接调用失败，尝试后端代理:',directErr.message||directErr);
+      /* 策略2：通过后端代理调用 */
+      return aiCartoonizeViaProxy(imageDataUrl)
+        .catch(function(proxyErr){
+          console.error('[PIGCAT] 后端代理也失败:',proxyErr.message||proxyErr);
+          throw proxyErr;
+        });
+    });
+}
+
+/* 直接调用上游AI API */
+function aiCartoonizeDirect(imageDataUrl){
+  /* 不设置超时，等待AI出图完毕 */
+
+  /* 将data URL转为Blob */
+  var base64Match=imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if(!base64Match){
+    return Promise.reject(new Error('无效的图片格式'));
+  }
+  var imageFormat=base64Match[1];
+  var base64Data=base64Match[2];
+  var byteString=atob(base64Data);
+  var byteArray=new Uint8Array(byteString.length);
+  for(var i=0;i<byteString.length;i++){
+    byteArray[i]=byteString.charCodeAt(i);
+  }
+  var mimeType='image/'+imageFormat;
+  var ext=imageFormat==='jpeg'?'jpg':imageFormat;
+  var blob=new Blob([byteArray],{type:mimeType});
+
+  /* 构建multipart/form-data */
+  var formData=new FormData();
+  formData.append('image',blob,'input.'+ext);
+  formData.append('prompt',buildFullPrompt());
+  formData.append('model',AI_API_DIRECT.model);
+  formData.append('size',AI_API_DIRECT.size);
+  formData.append('quality',AI_API_DIRECT.quality);
+
+  console.log('[PIGCAT] 直接调用上游API，图片大小:',(byteArray.length/1024).toFixed(1)+'KB');
+  console.log('[PIGCAT] 使用提示词:',buildFullPrompt().substring(0,100)+'...');
+
+  return fetch(AI_API_DIRECT.baseUrl+'/v1/images/edits',{
+    method:'POST',
+    headers:{
+      'Authorization':'Bearer '+AI_API_DIRECT.apiKey
+    },
+    body:formData
+  }).then(function(resp){
+    console.log('[PIGCAT] 上游API响应状态:',resp.status,resp.ok);
+    if(!resp.ok){
+      return resp.text().then(function(txt){
+        console.error('[PIGCAT] 上游API错误:',txt.substring(0,300));
+        throw new Error('上游API错误 '+resp.status+': '+txt.substring(0,150));
+      });
+    }
+    return resp.json();
+  }).then(function(data){
+    console.log('[PIGCAT] 上游API返回，data结构:',Object.keys(data));
+    if(data.data&&data.data[0]){
+      if(data.data[0].b64_json){
+        console.log('[PIGCAT] 收到base64格式图片');
+        return 'data:image/png;base64,'+data.data[0].b64_json;
+      }else if(data.data[0].url){
+        console.log('[PIGCAT] 收到URL格式图片，正在下载...');
+        return fetch(data.data[0].url).then(function(r){
+          if(!r.ok)throw new Error('下载AI图片失败:'+r.status);
+          return r.arrayBuffer();
+        }).then(function(buf){
+          var b64=Array.from(new Uint8Array(buf)).map(function(b){return String.fromCharCode(b);}).join('');
+          return 'data:image/png;base64,'+btoa(b64);
+        });
+      }
+    }
+    if(data.result)return data.result;
+    throw new Error('无法解析上游API响应');
+  }).catch(function(err){
+    throw err;
+  });
+}
+
+/* 通过后端代理调用（备用） */
+function aiCartoonizeViaProxy(imageDataUrl){
+  /* 不设置超时，等待AI出图完毕 */
+  console.log('[PIGCAT] 通过后端代理调用AI API...');
+  return fetch(AI_CARTOONIZE_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image:imageDataUrl,prompt:buildFullPrompt()})
+  }).then(function(resp){
+    console.log('[PIGCAT] 后端代理响应状态:',resp.status,resp.ok);
+    if(!resp.ok){
+      return resp.text().then(function(txt){
+        throw new Error('API返回错误 '+resp.status+': '+txt.substring(0,200));
+      });
+    }
+    return resp.json();
+  }).then(function(data){
+    if(data.result)return data.result;
+    throw new Error('API返回数据格式错误');
+  }).catch(function(err){
+    throw err;
+  });
+}
+
+/* 本地mock卡通化（API不可用时的降级方案） */
+function aiCartoonizeMock(imageDataUrl){
+  return new Promise(function(resolve){
+    setTimeout(function(){
+      var img=new Image();
+      img.onload=function(){
+        var w=img.width,h=img.height;
+        var c=document.createElement('canvas');
+        c.width=w;c.height=h;
+        var ctx=c.getContext('2d');
+        ctx.drawImage(img,0,0);
+        var imgData=ctx.getImageData(0,0,w,h);
+        var data=imgData.data;
+        /* 简化的卡通化：色调分离+饱和度增强 */
+        var levels=5;
+        var step=255/(levels-1);
+        for(var i=0;i<data.length;i+=4){
+          var r=data[i],g=data[i+1],b=data[i+2];
+          r=Math.round(r/step)*step;
+          g=Math.round(g/step)*step;
+          b=Math.round(b/step)*step;
+          var lum=0.299*r+0.587*g+0.114*b;
+          var sat=1.5;
+          r=lum+(r-lum)*sat;
+          g=lum+(g-lum)*sat;
+          b=lum+(b-lum)*sat;
+          data[i]=Math.max(0,Math.min(255,Math.round(r)));
+          data[i+1]=Math.max(0,Math.min(255,Math.round(g)));
+          data[i+2]=Math.max(0,Math.min(255,Math.round(b)));
+        }
+        ctx.putImageData(imgData,0,0);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.src=imageDataUrl;
+    },1500);
+  });
+}
+
+/* ============================================================
+   五、渲染引擎
+   ============================================================ */
+var canvasNaturalW=0,canvasNaturalH=0;
+
+function render(canvas,grid,palette,n,opts){
+  var showGrid=opts.showGrid,showLabels=opts.showLabels,showRuler=opts.showRuler;
+  var isExport=opts.isExport||false;
+  var counts=opts.counts||null;
+  var brandName=opts.brandName||'';
+  var layer=opts.layer||'all'; /* 'beads' | 'overlay' | 'all' */
+
+  var cellSize;
+  if(isExport){
+    cellSize=n<=52?28:n<=78?20:14;
+  }else{
+    cellSize=n<=52?16:n<=78?11:8;
+  }
+
+  var rulerSize=showRuler?(isExport?36:28):0;
+  var titleH=isExport?58:0;
+  var gridW=n*cellSize;
+  var gridH=n*cellSize;
+
+  var legendH=0;
+  if(isExport&&counts){
+    var legendCols=Math.min(6,palette.length);
+    var legendRows=Math.ceil(palette.length/legendCols);
+    legendH=40+legendRows*34+12;
+  }
+  var watermarkH=isExport?46:0;
+
+  var totalW=rulerSize+gridW;
+  var totalH=titleH+rulerSize+gridH+legendH+watermarkH;
+
+  var dpr=isExport?3:(window.devicePixelRatio||1);
+
+  canvas.width=Math.round(totalW*dpr);
+  canvas.height=Math.round(totalH*dpr);
+  canvas.style.width=totalW+'px';
+  canvas.style.height=totalH+'px';
+  canvas.style.display='block';
+
+  var ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,totalW,totalH);
+
+  /* beads层和all层：填充白色背景 */
+  if(layer==='beads'||layer==='all'){
+    ctx.fillStyle='#FFFFFF';
+    ctx.fillRect(0,0,totalW,totalH);
+  }
+
+  var ox=rulerSize;
+  var oy=titleH;
+
+  /* beads层和all层：标题 + 标尺背景 + 拼豆像素 */
+  if(layer==='beads'||layer==='all'){
+    if(isExport){
+      ctx.fillStyle='#FF8C42';
+      ctx.fillRect(0,0,totalW,titleH);
+      ctx.fillStyle='#FFFFFF';
+      ctx.font='700 22px "Pixel", Arial, sans-serif';
+      ctx.textAlign='left';
+      ctx.textBaseline='middle';
+      ctx.fillText('PIGCAT拼豆工坊',20,titleH/2);
+      ctx.font='700 13px "Courier New",monospace';
+      ctx.fillStyle='rgba(255,255,255,0.85)';
+      ctx.textAlign='right';
+      ctx.fillText(n+' × '+n+' 格 · '+palette.length+' 色 · '+brandName,totalW-20,titleH/2);
+    }
+
+    if(showRuler){
+      ctx.fillStyle='#FFF1E0';
+      ctx.fillRect(0,oy,totalW,rulerSize);
+      ctx.fillRect(0,oy,rulerSize,gridH);
+    }
+
+    for(var y=0;y<n;y++){
+      for(var x=0;x<n;x++){
+        var idx=grid[y*n+x];
+        if(idx<0)continue; /* 背景已移除，跳过填充（显示白色背景） */
+        var p=palette[idx];
+        ctx.fillStyle=p.hex;
+        ctx.fillRect(ox+x*cellSize,oy+y*cellSize,cellSize,cellSize);
+      }
+    }
+
+    if(isExport){
+      ctx.save();
+      ctx.translate(ox+gridW/2,oy+gridH/2);
+      ctx.rotate(-Math.PI/9);
+      ctx.fillStyle='rgba(92,51,23,0.06)';
+      ctx.font='700 '+Math.round(gridW*0.20)+'px "Pixel", Arial, sans-serif';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText('PIGCAT',0,0);
+      ctx.restore();
+    }
+  }
+
+  /* overlay层和all层：网格线 + 色号 + 标尺 + 图例 + 水印 */
+  if(layer==='overlay'||layer==='all'){
+    if(showGrid){
+      ctx.strokeStyle='rgba(0,0,0,0.35)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      for(var i=0;i<=n;i++){
+        var px=ox+i*cellSize;
+        ctx.moveTo(px,oy);ctx.lineTo(px,oy+gridH);
+        ctx.moveTo(ox,oy+i*cellSize);ctx.lineTo(ox+gridW,oy+i*cellSize);
+      }
+      ctx.stroke();
+      ctx.strokeStyle='rgba(220,60,30,0.9)';
+      ctx.lineWidth=isExport?2.5:2;
+      ctx.beginPath();
+      for(var i2=5;i2<=n;i2+=5){
+        var px2=ox+i2*cellSize;
+        ctx.moveTo(px2,oy);ctx.lineTo(px2,oy+gridH);
+        ctx.moveTo(ox,oy+i2*cellSize);ctx.lineTo(ox+gridW,oy+i2*cellSize);
+      }
+      ctx.stroke();
+      ctx.strokeStyle='rgba(0,0,0,0.9)';
+      ctx.lineWidth=isExport?3.5:3;
+      ctx.beginPath();
+      for(var i3=25;i3<=n;i3+=25){
+        var px3=ox+i3*cellSize;
+        ctx.moveTo(px3,oy);ctx.lineTo(px3,oy+gridH);
+        ctx.moveTo(ox,oy+i3*cellSize);ctx.lineTo(ox+gridW,oy+i3*cellSize);
+      }
+      ctx.stroke();
+      ctx.strokeStyle='#5C3317';
+      ctx.lineWidth=isExport?3.5:3;
+      ctx.strokeRect(ox,oy,gridW,gridH);
+    }
+
+    var minCellForLabels=isExport?14:12;
+    if(showLabels&&cellSize>=minCellForLabels){
+      var fontSize;
+      if(isExport){
+        fontSize=cellSize<=18?10:cellSize<=22?12:cellSize<=26?14:cellSize<=32?17:cellSize<=40?21:24;
+      }else{
+        fontSize=cellSize<=14?7:cellSize<=18?9:cellSize<=24?12:14;
+      }
+      ctx.font='700 '+fontSize+'px "Courier New",monospace';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.lineJoin='round';
+      var strokeW=Math.max(1.5,fontSize/3.5);
+      for(var y2=0;y2<n;y2++){
+        for(var x2=0;x2<n;x2++){
+          var idx2=grid[y2*n+x2];
+          if(idx2<0)continue; /* 背景已移除，跳过色号标注 */
+          var p2=palette[idx2];
+          var lum=luminance(p2.r,p2.g,p2.b);
+          var cx=ox+x2*cellSize+cellSize/2;
+          var cy=oy+y2*cellSize+cellSize/2;
+          ctx.lineWidth=strokeW;
+          ctx.strokeStyle=lum>140?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.45)';
+          ctx.strokeText(p2.code,cx,cy);
+          ctx.fillStyle=lum>140?'rgba(20,20,20,0.9)':'rgba(255,255,255,0.95)';
+          ctx.fillText(p2.code,cx,cy);
+        }
+      }
+    }
+
+    if(showRuler){
+      ctx.fillStyle='#5C3317';
+      ctx.font='600 '+(isExport?11:10)+'px "Courier New",monospace';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      for(var rx=0;rx<n;rx++){
+        if(rx%5===0||rx===n-1){
+          ctx.fillText((rx+1).toString(),ox+rx*cellSize+cellSize/2,oy+rulerSize/2);
+        }
+      }
+      for(var ry=0;ry<n;ry++){
+        if(ry%5===0||ry===n-1){
+          ctx.fillText((ry+1).toString(),rulerSize/2,oy+ry*cellSize+cellSize/2);
+        }
+      }
+      ctx.strokeStyle='rgba(92,51,23,0.3)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(0,oy+rulerSize);ctx.lineTo(totalW,oy+rulerSize);
+      ctx.moveTo(rulerSize,oy);ctx.lineTo(rulerSize,oy+gridH);
+      ctx.stroke();
+    }
+
+    if(isExport&&counts){
+      var legY=oy+gridH+18;
+      ctx.fillStyle='#5C3317';
+      ctx.font='700 16px "Pixel", Arial, sans-serif';
+      ctx.textAlign='left';
+      ctx.textBaseline='top';
+      ctx.fillText('色号图例 · Color Legend',20,legY);
+      legY+=30;
+      var cols=Math.min(6,palette.length);
+      var colW=(totalW-40)/cols;
+      var sortedPalette=palette.slice().sort(function(a,b){
+        return(counts[b.code]||0)-(counts[a.code]||0);
+      });
+      sortedPalette.forEach(function(p,idx){
+        var col=idx%cols;
+        var row=Math.floor(idx/cols);
+        var lx=20+col*colW;
+        var ly=legY+row*34;
+        var cnt=counts[p.code]||0;
+        ctx.fillStyle=p.hex;
+        ctx.fillRect(lx,ly,24,24);
+        ctx.strokeStyle='rgba(0,0,0,0.3)';
+        ctx.lineWidth=1;
+        ctx.strokeRect(lx,ly,24,24);
+        ctx.fillStyle='#5C3317';
+        ctx.font='700 12px "Courier New",monospace';
+        ctx.textAlign='left';
+        ctx.textBaseline='middle';
+        ctx.fillText(p.code,lx+30,ly+8);
+        ctx.font='400 10px "Courier New",monospace';
+        ctx.fillStyle='#8B5A3C';
+        ctx.fillText(cnt+' 颗',lx+30,ly+19);
+      });
+    }
+
+    if(isExport){
+      var wmY=totalH-watermarkH;
+      ctx.fillStyle='rgba(255,140,66,0.12)';
+      ctx.fillRect(0,wmY,totalW,watermarkH);
+      ctx.strokeStyle='rgba(92,51,23,0.25)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(0,wmY);ctx.lineTo(totalW,wmY);
+      ctx.stroke();
+      ctx.fillStyle='rgba(92,51,23,0.55)';
+      ctx.font='700 16px "Pixel", Arial, sans-serif';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText('PIGCAT拼豆工坊 · pigcat studio',totalW/2,wmY+watermarkH/2);
+    }
+  }
+
+  canvasNaturalW=totalW;
+  canvasNaturalH=totalH;
+}
+
+/* ============================================================
+   七、图例渲染
+   ============================================================ */
+function renderLegend(palette,counts){
+  var card=document.getElementById('legendCard');
+  var grid=document.getElementById('legendGrid');
+  var summary=document.getElementById('legendSummary');
+  card.style.display='block';
+  grid.innerHTML='';
+  var total=0;
+  var sorted=palette.slice().sort(function(a,b){
+    return(counts[b.code]||0)-(counts[a.code]||0);
+  });
+  sorted.forEach(function(p){
+    var cnt=counts[p.code]||0;
+    total+=cnt;
+    var item=document.createElement('div');
+    item.className='legend-item';
+    item.innerHTML='<span class="legend-swatch" style="background:'+p.hex+'"></span><span class="legend-code">'+p.code+'</span><span class="legend-count">'+cnt+'颗</span>';
+    grid.appendChild(item);
+  });
+  summary.textContent=palette.length+' 色 · 共 '+total+' 颗';
+}
+
+/* ============================================================
+   八、响应式画布缩放
+   ============================================================ */
+var styleGrid=document.getElementById('styleGrid');
+var dropzone=document.getElementById('dropzone');
+var styleCanvases=[];     /* bead canvas元素（仅像素） */
+var overlayCanvases=[];   /* overlay canvas元素（网格/色号/标尺） */
+var styleResults={};      /* {key:{grid,palette,counts,n,brandName}} */
+var selectedStyle='direct'; /* 当前选中的风格 */
+
+/* 动态创建2个风格格子 */
+STYLE_DEFS.forEach(function(def,i){
+  var cell=document.createElement('div');
+  cell.className='style-cell '+def.cls+(i===0?' selected':'');
+  cell.dataset.key=def.key;
+  cell.innerHTML=
+    '<div class="style-cell-head">'+
+      '<span class="sname">'+def.name+'</span>'+
+      '<span class="badge">'+def.badge+'</span>'+
+    '</div>'+
+    '<div class="style-cell-canvas">'+
+      '<canvas class="bead-canvas"></canvas>'+
+      '<canvas class="overlay-canvas"></canvas>'+
+    '</div>'+
+    '<div class="style-cell-foot">'+
+      '<span class="meta-mini">-</span>'+
+      '<div style="display:flex;gap:4px">'+
+        (def.key==='direct'?'<button class="bg-btn" data-key="'+def.key+'" id="bgBtn_'+def.key+'">去除背景</button>':'')+
+        '<button class="dl-one" data-key="'+def.key+'">导出</button>'+
+      '</div>'+
+    '</div>';
+  styleGrid.appendChild(cell);
+  var bc=cell.querySelector('.bead-canvas');
+  var oc=cell.querySelector('.overlay-canvas');
+  bc.style.display='none';
+  oc.style.display='none';
+  styleCanvases.push(bc);
+  overlayCanvases.push(oc);
+
+  /* 点击格子选中该风格 */
+  cell.onclick=function(e){
+    if(e.target.classList.contains('dl-one'))return;
+    if(e.target.classList.contains('bg-btn'))return;
+    selectedStyle=def.key;
+    document.querySelectorAll('.style-cell').forEach(function(c){c.classList.remove('selected');});
+    cell.classList.add('selected');
+    if(styleResults[def.key]){
+      renderLegend(styleResults[def.key].palette,styleResults[def.key].counts);
+    }
+  };
+
+  /* 单击画布放大查看 */
+  var canvasWrap=cell.querySelector('.style-cell-canvas');
+  canvasWrap.style.cursor='zoom-in';
+  canvasWrap.addEventListener('click',function(e){
+    if(e.target.classList.contains('dl-one')||e.target.classList.contains('bg-btn'))return;
+    if(!styleResults[def.key])return;
+    e.stopPropagation();
+    /* 同时选中该风格 */
+    selectedStyle=def.key;
+    document.querySelectorAll('.style-cell').forEach(function(c){c.classList.remove('selected');});
+    cell.classList.add('selected');
+    if(styleResults[def.key]){
+      renderLegend(styleResults[def.key].palette,styleResults[def.key].counts);
+    }
+    zoomCanvas(def.key);
+  });
+
+  /* 单独导出按钮 */
+  cell.querySelector('.dl-one').onclick=function(e){
+    e.stopPropagation();
+    exportStyle(def.key);
+  };
+
+  /* 去除背景按钮（仅direct风格） */
+  if(def.key==='direct'){
+    var bgBtn=cell.querySelector('.bg-btn');
+    if(bgBtn){
+      bgBtn.onclick=function(e){
+        e.stopPropagation();
+        toggleBackgroundRemoval(def.key,bgBtn);
+      };
+    }
+  }
+});
+
+/* ============================================================
+   背景去除功能：从拼豆网格边缘开始洪水填充，检测并移除背景
+   ============================================================ */
+var bgRemovedState={}; /* 记录每个风格是否已去除背景 */
+var originalGrids={};  /* 保存原始grid，用于切换恢复 */
+
+function toggleBackgroundRemoval(key,btn){
+  var r=styleResults[key];
+  if(!r){toast('请先生成图纸');return;}
+
+  if(bgRemovedState[key]){
+    /* 恢复原始grid */
+    if(originalGrids[key]){
+      r.grid=originalGrids[key].slice();
+    }
+    bgRemovedState[key]=false;
+    btn.classList.remove('active');
+    btn.textContent='去除背景';
+    /* 隐藏强度滑块 */
+    var sliderWrap=document.getElementById('bgSliderWrap');
+    if(sliderWrap)sliderWrap.style.display='none';
+  }else{
+    /* 执行背景去除 */
+    if(!originalGrids[key]){
+      originalGrids[key]=r.grid.slice();
+    }
+    var bgSlider=document.getElementById('bgStrengthSlider');
+    var threshold=bgSlider?parseInt(bgSlider.value):45;
+    var bgMask=detectBackground(r.grid,r.palette,r.n,threshold);
+    var removedCount=0;
+    for(var i=0;i<r.grid.length;i++){
+      if(bgMask[i]){
+        r.grid[i]=-1; /* 标记为背景，渲染时跳过 */
+        removedCount++;
+      }
+    }
+    bgRemovedState[key]=true;
+    btn.classList.add('active');
+    btn.textContent='恢复背景';
+    /* 显示强度滑块 */
+    var sliderWrap2=document.getElementById('bgSliderWrap');
+    if(sliderWrap2)sliderWrap2.style.display='flex';
+
+    /* 重新计算色数和颗数 */
+    var newCounts={};
+    for(var j=0;j<r.grid.length;j++){
+      if(r.grid[j]>=0){
+        var code=r.palette[r.grid[j]].code;
+        newCounts[code]=(newCounts[code]||0)+1;
+      }
+    }
+    r.counts=newCounts;
+  }
+
+  /* 重新渲染 */
+  var idx=STYLE_DEFS.findIndex(function(d){return d.key===key;});
+  if(idx<0)return;
+  var cell=styleGrid.children[idx];
+  var bc=styleCanvases[idx];
+  var oc=overlayCanvases[idx];
+  render(bc,r.grid,r.palette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:r.brandName,
+    layer:'beads'
+  });
+  render(oc,r.grid,r.palette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:r.brandName,
+    layer:'overlay'
+  });
+
+  /* 更新meta信息 */
+  var totalBeads=0;
+  Object.keys(r.counts).forEach(function(k){totalBeads+=r.counts[k];});
+  cell.querySelector('.meta-mini').textContent=r.palette.length+'色 · '+totalBeads+'颗';
+
+  /* 更新图例 */
+  if(selectedStyle===key){
+    renderLegend(r.palette,r.counts);
+  }
+  fitCanvas();
+}
+
+/* 洪水填充算法：从网格边缘开始，检测连通的背景区域 */
+/* threshold: 颜色相似度阈值（RGB距离），值越大去除范围越广 */
+function detectBackground(grid,palette,n,threshold){
+  if(!threshold)threshold=45;
+  var visited=new Array(n*n).fill(false);
+  var isBg=new Array(n*n).fill(false);
+  var queue=[];
+
+  /* 计算两个调色板颜色之间的距离 */
+  function colorDist(p1,p2){
+    var dr=p1.r-p2.r,dg=p1.g-p2.g,db=p1.b-p2.b;
+    return Math.sqrt(dr*dr+dg*dg+db*db);
+  }
+
+  /* 将所有边缘格子加入队列作为种子点 */
+  for(var x=0;x<n;x++){
+    var topIdx=x;
+    var botIdx=(n-1)*n+x;
+    if(!visited[topIdx]){visited[topIdx]=true;isBg[topIdx]=true;queue.push(topIdx);}
+    if(!visited[botIdx]){visited[botIdx]=true;isBg[botIdx]=true;queue.push(botIdx);}
+  }
+  for(var y=0;y<n;y++){
+    var leftIdx=y*n;
+    var rightIdx=y*n+n-1;
+    if(!visited[leftIdx]){visited[leftIdx]=true;isBg[leftIdx]=true;queue.push(leftIdx);}
+    if(!visited[rightIdx]){visited[rightIdx]=true;isBg[rightIdx]=true;queue.push(rightIdx);}
+  }
+
+  /* BFS洪水填充 */
+  while(queue.length>0){
+    var idx=queue.shift();
+    var cx=idx%n;
+    var cy=Math.floor(idx/n);
+    var curPal=palette[grid[idx]];
+    if(!curPal)continue;
+
+    /* 检查4个方向的邻居 */
+    var neighbors=[];
+    if(cx>0)neighbors.push(idx-1);
+    if(cx<n-1)neighbors.push(idx+1);
+    if(cy>0)neighbors.push(idx-n);
+    if(cy<n-1)neighbors.push(idx+n);
+
+    for(var ni=0;ni<neighbors.length;ni++){
+      var nidx=neighbors[ni];
+      if(visited[nidx])continue;
+      var neighborPal=palette[grid[nidx]];
+      if(!neighborPal)continue;
+
+      /* 如果邻居颜色与当前格子颜色相似，则标记为背景 */
+      if(colorDist(curPal,neighborPal)<threshold){
+        visited[nidx]=true;
+        isBg[nidx]=true;
+        queue.push(nidx);
+      }
+    }
+  }
+
+  return isBg;
+}
+
+/* ============================================================
+   画布放大查看功能
+   ============================================================ */
+var zoomOverlay=document.getElementById('zoomOverlay');
+var zoomCanvasEl=document.getElementById('zoomCanvas');
+var zoomCloseBtn=document.getElementById('zoomClose');
+
+function zoomCanvas(key){
+  var r=styleResults[key];
+  if(!r)return;
+  var def=STYLE_DEFS.find(function(d){return d.key===key;});
+  /* 用导出级分辨率渲染到zoom canvas */
+  render(zoomCanvasEl,r.grid,r.palette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:true,
+    counts:r.counts,
+    brandName:r.brandName
+  });
+  /* 应用图像调节（仅beads层效果，这里全画布合成） */
+  applyAdjustmentsToCanvas(zoomCanvasEl);
+  zoomOverlay.classList.add('open');
+}
+
+zoomCloseBtn.onclick=function(){zoomOverlay.classList.remove('open');};
+zoomOverlay.onclick=function(e){
+  if(e.target===zoomOverlay)zoomOverlay.classList.remove('open');
+};
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&zoomOverlay.classList.contains('open')){
+    zoomOverlay.classList.remove('open');
+  }
+});
+
+function fitCanvas(){
+  var pad=24;
+  var cells=styleGrid.querySelectorAll('.style-cell-canvas');
+  cells.forEach(function(cellEl,idx){
+    var bc=styleCanvases[idx];
+    var oc=overlayCanvases[idx];
+    if(!bc||bc.style.display==='none')return;
+    var aw=cellEl.clientWidth-pad;
+    var ah=cellEl.clientHeight-pad;
+    if(aw<=0||ah<=0)return;
+    var natW=bc._natW||0,natH=bc._natH||0;
+    if(!natW||!natH)return;
+    var scale=Math.min(aw/natW,ah/natH,1);
+    if(scale<0.05)scale=0.05;
+    var transform='translate(-50%, -50%) scale('+scale+')';
+    bc.style.transform='translate(-50%, -50%) scale('+scale+')';
+    if(oc){
+      oc.style.width=natW+'px';
+      oc.style.height=natH+'px';
+      oc.style.transform=transform;
+    }
+  });
+}
+
+if(window.ResizeObserver){
+  var ro=new ResizeObserver(function(){fitCanvas();});
+  ro.observe(dropzone);
+}
+window.addEventListener('resize',fitCanvas);
+
+/* ============================================================
+   九、历史记录管理（最近图纸=上传原图，我的图纸=生成结果）
+   ============================================================ */
+var uploadHistory=[];   /* 最近图纸：存储上传的原图缩略图 */
+var patternHistory=[];  /* 我的图纸：存储生成的拼豆图纸结果 */
+var usageUsed=0;
+var creditsRemaining=0; /* 当前卡密剩余可生成次数 */
+
+/* 卡密系统：算法验证（与卡密生成器共享校验逻辑） */
+var KEY_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+var KEY_PLAN_CREDITS={A:1,B:3,C:5,D:10};
+
+/* ============================================================
+   卡密持久化存储：使用localStorage记录每个卡密的已使用次数
+   防止用户刷新页面重置次数
+   ============================================================ */
+var KEY_STORAGE_PREFIX='pigcat_key_'; /* localStorage键名前缀 */
+
+/* 获取卡密已使用次数（从localStorage读取） */
+function getKeyUsedCount(key){
+  try{
+    var val=localStorage.getItem(KEY_STORAGE_PREFIX+key);
+    return val?parseInt(val):0;
+  }catch(e){
+    return 0;
+  }
+}
+
+/* 设置卡密已使用次数（写入localStorage） */
+function setKeyUsedCount(key,count){
+  try{
+    localStorage.setItem(KEY_STORAGE_PREFIX+key,String(count));
+  }catch(e){
+    console.warn('[PIGCAT] 无法写入localStorage:',e);
+  }
+}
+
+/* 获取卡密剩余次数（总次数 - 已用次数） */
+function getKeyRemaining(key){
+  var total=getKeyCredits(key);
+  var used=getKeyUsedCount(key);
+  return Math.max(0,total-used);
+}
+
+/* 消耗一次卡密使用次数（写入localStorage持久化） */
+function consumeKeyCredit(key){
+  var used=getKeyUsedCount(key);
+  used++;
+  setKeyUsedCount(key,used);
+  var remaining=getKeyRemaining(key);
+  console.log('[PIGCAT] 卡密'+key+'已使用'+used+'次，剩余'+remaining+'次');
+  return remaining;
+}
+
+/* 校验卡密格式：PC-XXXX-XXXX-XXXX，且字符均来自合法字符集 */
+function isValidKeyFormat(key){
+  if(key.length!==17)return false;
+  if(key.substring(0,3)!=='PC-')return false;
+  if(key.charAt(7)!=='-'||key.charAt(12)!=='-')return false;
+  var chars=key.substring(3,7)+key.substring(8,12)+key.substring(13,17);
+  if(chars.length!==12)return false;
+  for(var i=0;i<12;i++){
+    if(KEY_CHARS.indexOf(chars[i])<0)return false;
+  }
+  return true;
+}
+
+/* 校验码验证：前11位字符索引之和取模，应等于第12位字符 */
+function verifyChecksum(key){
+  var chars=key.substring(3,7)+key.substring(8,12)+key.substring(13,17);
+  var data11=chars.substring(0,11);
+  var checkChar=chars.charAt(11);
+  var sum=0;
+  for(var i=0;i<11;i++){
+    sum+=KEY_CHARS.indexOf(data11[i]);
+  }
+  var expected=KEY_CHARS[sum%KEY_CHARS.length];
+  return checkChar===expected;
+}
+
+/* 综合卡密验证 */
+function validateKey(key){
+  if(!isValidKeyFormat(key))return false;
+  if(!verifyChecksum(key))return false;
+  var chars=key.substring(3,7)+key.substring(8,12)+key.substring(13,17);
+  return !!KEY_PLAN_CREDITS[chars.charAt(0)];
+}
+
+function getKeyCredits(key){
+  var chars=key.substring(3,7)+key.substring(8,12)+key.substring(13,17);
+  return KEY_PLAN_CREDITS[chars.charAt(0)]||0;
+}
+
+var currentKey='';
+
+function saveToUploadHistory(imgDataUrl){
+  var now=new Date();
+  var timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  var dateStr=(now.getMonth()+1)+'.'+now.getDate();
+  var record={
+    id:Date.now(),
+    thumb:imgDataUrl,
+    dateStr:dateStr,
+    timeStr:timeStr,
+    timestamp:now.getTime()
+  };
+  uploadHistory.unshift(record);
+  if(uploadHistory.length>30)uploadHistory=uploadHistory.slice(0,30);
+  renderRecentProjects();
+}
+
+function saveToHistory(grid,palette,n,counts,brandName,style){
+  // 生成缩略图canvas
+  var thumbCanvas=document.createElement('canvas');
+  var thumbSize=80;
+  thumbCanvas.width=thumbSize;
+  thumbCanvas.height=thumbSize;
+  var tctx=thumbCanvas.getContext('2d');
+  tctx.imageSmoothingEnabled=false;
+  for(var y=0;y<n;y++){
+    for(var x=0;x<n;x++){
+      var idx=grid[y*n+x];
+      if(idx<0)continue; /* 背景已移除，跳过 */
+      var p=palette[idx];
+      tctx.fillStyle=p.hex;
+      tctx.fillRect(Math.floor(x*thumbSize/n),Math.floor(y*thumbSize/n),Math.ceil(thumbSize/n),Math.ceil(thumbSize/n));
+    }
+  }
+  var thumbData=thumbCanvas.toDataURL('image/png');
+
+  var totalBeads=0;
+  Object.keys(counts).forEach(function(k){totalBeads+=counts[k];});
+
+  var now=new Date();
+  var timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  var dateStr=(now.getMonth()+1)+'.'+now.getDate();
+
+  var record={
+    id:Date.now(),
+    thumb:thumbData,
+    grid:grid.slice(),
+    palette:palette.map(function(p){return{code:p.code,hex:p.hex,r:p.r,g:p.g,b:p.b};}),
+    n:n,
+    counts:counts,
+    brandName:brandName,
+    style:style,
+    totalBeads:totalBeads,
+    colorCount:palette.length,
+    timeStr:timeStr,
+    dateStr:dateStr,
+    timestamp:now.getTime()
+  };
+  patternHistory.unshift(record);
+  if(patternHistory.length>50)patternHistory=patternHistory.slice(0,50);
+}
+
+function renderRecentProjects(){
+  var container=document.getElementById('recentProjects');
+  if(uploadHistory.length===0){
+    container.innerHTML='<div class="empty-history">还没有上传过图片，选择一张图片开始吧！</div>';
+    return;
+  }
+  var showCount=Math.min(3,uploadHistory.length);
+  var html='';
+  for(var i=0;i<showCount;i++){
+    var r=uploadHistory[i];
+    html+='<article class="project" data-idx="'+i+'">'+
+      '<div class="thumb"><img src="'+r.thumb+'" class="mini"></div>'+
+      '<div class="project-info"><strong>上传图片 '+(i+1)+'</strong>'+
+      '<small>'+r.dateStr+' '+r.timeStr+'</small></div>'+
+      '</article>';
+  }
+  container.innerHTML=html;
+}
+
+function renderAllPatterns(){
+  var container=document.getElementById('patternsGrid');
+  if(patternHistory.length===0){
+    container.innerHTML='<div class="empty-history">还没有生成过图纸，上传图片并生成后会自动记录在这里。</div>';
+    return;
+  }
+  var html='';
+  patternHistory.forEach(function(r,i){
+    html+='<div class="pattern-card" data-idx="'+i+'">'+
+      '<div class="pc-thumb"><img src="'+r.thumb+'"></div>'+
+      '<div class="pc-info"><strong>'+r.brandName+' · '+r.n+'×'+r.n+'</strong>'+
+      '<small>'+r.dateStr+' '+r.timeStr+' · '+r.colorCount+'色 · '+r.totalBeads+'颗</small></div>'+
+      '<div class="pc-actions"><button class="view-btn" data-idx="'+i+'">查看</button><button class="dl-btn" data-idx="'+i+'">下载</button></div>'+
+      '</div>';
+  });
+  container.innerHTML=html;
+
+  container.querySelectorAll('.pattern-card').forEach(function(el){
+    el.onclick=function(e){
+      if(e.target.classList.contains('dl-btn')){
+        e.stopPropagation();
+        downloadFromHistory(parseInt(e.target.dataset.idx));
+      }else{
+        var idx=parseInt(el.dataset.idx);
+        document.getElementById('patternsOverlay').classList.remove('open');
+        restorePattern(idx);
+      }
+    };
+  });
+}
+
+function restorePattern(idx){
+  if(idx<0||idx>=patternHistory.length)return;
+  var r=patternHistory[idx];
+  /* 找到对应风格的格子（历史记录中 style 字段保存的是 def.key） */
+  var defIdx=0;
+  for(var d=0;d<STYLE_DEFS.length;d++){
+    if(STYLE_DEFS[d].key===r.style){defIdx=d;break;}
+  }
+  var def=STYLE_DEFS[defIdx];
+
+  /* 重置所有格子 */
+  styleResults={};
+  STYLE_DEFS.forEach(function(sdef,i){
+    var sbc=styleCanvases[i];
+    sbc.style.display='none';
+    sbc._natW=0;sbc._natH=0;
+    sbc.style.filter='';
+    var soc=overlayCanvases[i];
+    soc.style.display='none';
+    var scell=styleGrid.children[i];
+    scell.querySelector('.meta-mini').textContent='-';
+    scell.classList.remove('selected');
+  });
+
+  /* 恢复的调色板数据 */
+  var restoredPalette=r.palette.map(function(p){return{code:p.code,hex:p.hex,r:p.r,g:p.g,b:p.b};});
+  var restoredCounts={};
+  Object.keys(r.counts).forEach(function(k){restoredCounts[k]=r.counts[k];});
+
+  /* 存储结果并渲染到对应canvas */
+  styleResults[def.key]={
+    grid:r.grid.slice(),
+    palette:restoredPalette,
+    counts:restoredCounts,
+    n:r.n,
+    brandName:r.brandName
+  };
+  selectedStyle=def.key;
+  var cell=styleGrid.children[defIdx];
+  cell.classList.add('selected');
+
+  /* 渲染bead层 */
+  var bc=styleCanvases[defIdx];
+  bc.style.display='block';
+  render(bc,r.grid.slice(),restoredPalette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:r.brandName,
+    layer:'beads'
+  });
+  bc._natW=canvasNaturalW;
+  bc._natH=canvasNaturalH;
+
+  /* 渲染overlay层 */
+  var oc=overlayCanvases[defIdx];
+  oc.style.display='block';
+  render(oc,r.grid.slice(),restoredPalette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:r.brandName,
+    layer:'overlay'
+  });
+
+  cell.querySelector('.meta-mini').textContent=restoredPalette.length+'色 · '+r.totalBeads+'颗';
+
+  empty.style.display='none';
+  styleGrid.style.display='grid';
+  reuploadBtn.style.display='inline-block';
+  fitCanvas();
+
+  // 图例
+  renderLegend(restoredPalette,restoredCounts);
+
+  // 元信息
+  statusEl.textContent='已恢复图纸';
+  metaEl.innerHTML=r.n+' × '+r.n+' 格 · <b>'+r.colorCount+' 色</b> · 共 '+r.totalBeads+' 颗 · '+r.brandName;
+  toast('已恢复查看「'+r.brandName+' · '+r.n+'×'+r.n+'」');
+}
+
+function downloadFromHistory(idx){
+  if(idx<0||idx>=patternHistory.length)return;
+  var r=patternHistory[idx];
+  var exportCanvas=document.createElement('canvas');
+  render(exportCanvas,r.grid,r.palette,r.n,{
+    showGrid:true,
+    showLabels:true,
+    showRuler:true,
+    isExport:true,
+    counts:r.counts,
+    brandName:r.brandName
+  });
+  var a=document.createElement('a');
+  a.download='pigcat-bead-'+r.brandName+'-'+r.n+'x'+r.n+'.png';
+  a.href=exportCanvas.toDataURL('image/png');
+  a.click();
+  toast('已导出「'+r.brandName+' · '+r.n+'×'+r.n+'」高清图纸');
+}
+
+function updateUsage(){
+  document.getElementById('usageCount').textContent=creditsRemaining+' 次可用';
+  document.getElementById('usageBar').style.width=(creditsRemaining>0?100:0)+'%';
+  document.getElementById('creditsCount').textContent=creditsRemaining;
+  var hint=document.getElementById('usageHint');
+  var closeBtn=document.getElementById('closeModal');
+  if(creditsRemaining>0){
+    hint.textContent='当前卡密可用，每次生成图纸消耗 1 次';
+    closeBtn.style.display='';
+  }else{
+    hint.textContent='请输入卡密后开始使用';
+    closeBtn.style.display='none';
+  }
+}
+
+/* ============================================================
+   十、主逻辑：上传、生成、导出
+   ============================================================ */
+var input=document.getElementById('fileInput');
+var uploadBtn=document.getElementById('uploadBtn');
+var empty=document.getElementById('emptyState');
+var statusEl=document.getElementById('statusText');
+var metaEl=document.getElementById('metaText');
+var sizeRange=document.getElementById('boardSizeSelect');
+var colorRange=document.getElementById('colorRange');
+var brandSelect=document.getElementById('brandSelect');
+var gridCheck=document.getElementById('gridCheck');
+var labelCheck=document.getElementById('labelCheck');
+var rulerCheck=document.getElementById('rulerCheck');
+var reuploadBtn=document.getElementById('reuploadBtn');
+var contrastRange=document.getElementById('contrastRange');
+var sharpenRange=document.getElementById('sharpenRange');
+var brightnessRange=document.getElementById('brightnessRange');
+var shadowRange=document.getElementById('shadowRange');
+var saturationRange=document.getElementById('saturationRange');
+var resetAdjustBtn=document.getElementById('resetAdjustBtn');
+
+function getFilterString(){
+  var c=contrastRange.value/100;
+  var b=brightnessRange.value/100;
+  var s=saturationRange.value/100;
+  var sh=shadowRange.value/100;
+  /* 阴影：降低亮度的比例来模拟阴影加深 */
+  var shadowFactor=1-sh*0.3;
+  var filterStr='contrast('+c+') brightness('+(b*shadowFactor)+') saturate('+s+')';
+  var sharpenVal=sharpenRange.value;
+  if(sharpenVal>0){
+    filterStr+=' url(#sharpenFilter)';
+    /* 更新SVG卷积核 */
+    var amt=sharpenVal/100;
+    var center=1+amt*4;
+    var side=-amt;
+    var matrix=document.getElementById('sharpenMatrix');
+    if(matrix){
+      matrix.setAttribute('kernelMatrix','0 '+side+' 0 '+side+' '+center+' '+side+' 0 '+side+' 0');
+    }
+  }
+  return filterStr;
+}
+
+function getExportFilterString(){
+  var c=contrastRange.value/100;
+  var b=brightnessRange.value/100;
+  var s=saturationRange.value/100;
+  var sh=shadowRange.value/100;
+  var shadowFactor=1-sh*0.3;
+  return 'contrast('+c+') brightness('+(b*shadowFactor)+') saturate('+s+')';
+}
+
+/* 导出时将图像调节应用到canvas像素数据 */
+function applyAdjustmentsToCanvas(canvas){
+  var ctx=canvas.getContext('2d');
+  var w=canvas.width,h=canvas.height;
+  var imgData=ctx.getImageData(0,0,w,h);
+  var data=imgData.data;
+  
+  var contrast=contrastRange.value/100;
+  var brightness=brightnessRange.value/100;
+  var saturation=saturationRange.value/100;
+  var shadow=shadowRange.value/100;
+  var sharpen=sharpenRange.value/100;
+  
+  /* 阴影因子 */
+  var shadowFactor=1-shadow*0.3;
+  /* 对比度中心点 */
+  var contrastCenter=128;
+  
+  for(var i=0;i<data.length;i+=4){
+    var r=data[i],g=data[i+1],b=data[i+2];
+    /* 亮度+阴影 */
+    r=r*brightness*shadowFactor;
+    g=g*brightness*shadowFactor;
+    b=b*brightness*shadowFactor;
+    /* 对比度 */
+    r=(r-contrastCenter)*contrast+contrastCenter;
+    g=(g-contrastCenter)*contrast+contrastCenter;
+    b=(b-contrastCenter)*contrast+contrastCenter;
+    /* 饱和度 */
+    var lum=0.299*r+0.587*g+0.114*b;
+    r=lum+(r-lum)*saturation;
+    g=lum+(g-lum)*saturation;
+    b=lum+(b-lum)*saturation;
+    /* 钳制 */
+    data[i]=Math.max(0,Math.min(255,r));
+    data[i+1]=Math.max(0,Math.min(255,g));
+    data[i+2]=Math.max(0,Math.min(255,b));
+  }
+  
+  /* 锐化（卷积） */
+  if(sharpen>0){
+    var copy=new Uint8ClampedArray(data);
+    var center=1+sharpen*4;
+    var side=-sharpen;
+    for(var y=1;y<h-1;y++){
+      for(var x=1;x<w-1;x++){
+        for(var c=0;c<3;c++){
+          var idx=(y*w+x)*4+c;
+          var val=center*copy[idx]
+            +side*(copy[idx-4]+copy[idx+4]+copy[idx-w*4]+copy[idx+w*4]);
+          data[idx]=Math.max(0,Math.min(255,val));
+        }
+      }
+    }
+  }
+  
+  ctx.putImageData(imgData,0,0);
+}
+
+function applyAdjustFilters(){
+  var fStr=getFilterString();
+  /* 只对bead canvas应用滤镜，不影响overlay canvas */
+  styleCanvases.forEach(function(cv){
+    cv.style.filter=fStr;
+  });
+}
+
+function updateAdjustLabels(){
+  document.getElementById('contrastVal').textContent=contrastRange.value+'%';
+  document.getElementById('sharpenVal').textContent=sharpenRange.value;
+  document.getElementById('brightnessVal').textContent=brightnessRange.value+'%';
+  document.getElementById('shadowVal').textContent=shadowRange.value;
+  document.getElementById('saturationVal').textContent=saturationRange.value+'%';
+}
+
+[contrastRange,sharpenRange,brightnessRange,shadowRange,saturationRange].forEach(function(r){
+  r.addEventListener('input',function(){
+    updateAdjustLabels();
+    applyAdjustFilters();
+  });
+});
+
+resetAdjustBtn.onclick=function(){
+  contrastRange.value=100;
+  sharpenRange.value=0;
+  brightnessRange.value=100;
+  shadowRange.value=0;
+  saturationRange.value=100;
+  updateAdjustLabels();
+  applyAdjustFilters();
+};
+
+/* 背景去除强度滑块事件 */
+var bgStrengthSlider=document.getElementById('bgStrengthSlider');
+var bgStrengthVal=document.getElementById('bgStrengthVal');
+bgStrengthSlider.addEventListener('input',function(){
+  bgStrengthVal.textContent=bgStrengthSlider.value;
+  /* 如果当前已去除背景，实时重新执行 */
+  if(bgRemovedState['direct']&&originalGrids['direct']){
+    var r=styleResults['direct'];
+    if(!r)return;
+    /* 恢复原始grid再重新去除 */
+    r.grid=originalGrids['direct'].slice();
+    var threshold=parseInt(bgStrengthSlider.value);
+    var bgMask=detectBackground(r.grid,r.palette,r.n,threshold);
+    for(var i=0;i<r.grid.length;i++){
+      if(bgMask[i])r.grid[i]=-1;
+    }
+    /* 重新计算色数和颗数 */
+    var newCounts={};
+    for(var j=0;j<r.grid.length;j++){
+      if(r.grid[j]>=0){
+        var code=r.palette[r.grid[j]].code;
+        newCounts[code]=(newCounts[code]||0)+1;
+      }
+    }
+    r.counts=newCounts;
+    /* 重新渲染 */
+    var idx=0;
+    var cell=styleGrid.children[idx];
+    var bc=styleCanvases[idx];
+    var oc=overlayCanvases[idx];
+    render(bc,r.grid,r.palette,r.n,{
+      showGrid:gridCheck.checked,showLabels:labelCheck.checked,
+      showRuler:rulerCheck.checked,isExport:false,
+      brandName:r.brandName,layer:'beads'
+    });
+    render(oc,r.grid,r.palette,r.n,{
+      showGrid:gridCheck.checked,showLabels:labelCheck.checked,
+      showRuler:rulerCheck.checked,isExport:false,
+      brandName:r.brandName,layer:'overlay'
+    });
+    var totalBeads=0;
+    Object.keys(r.counts).forEach(function(k){totalBeads+=r.counts[k];});
+    cell.querySelector('.meta-mini').textContent=r.palette.length+'色 · '+totalBeads+'颗';
+    if(selectedStyle==='direct')renderLegend(r.palette,r.counts);
+    fitCanvas();
+  }
+});
+
+var image=null;
+var aiCartoonImage=null;     /* 缓存AI卡通化结果，避免重复调用API */
+var aiCartoonBusy=false;     /* AI API是否正在调用中 */
+var creditDeductedForImage=false; /* 当前图片是否已扣除卡密次数（防止参数变化重复扣费） */
+
+function generate(skipCreditCheck){
+  if(!image)return;
+  
+  /* 检查卡密剩余次数（参数变化时跳过，仅在首次生图/上传新图时检查） */
+  if(!skipCreditCheck && creditsRemaining<=0){
+    toast('卡密次数已用完，请输入新卡密');
+    modal.classList.add('open');
+    return;
+  }
+  
+  /* 生成时扣除卡密次数（每张图片只扣一次，参数变化不重复扣费） */
+  if(!skipCreditCheck && !creditDeductedForImage && currentKey){
+    creditsRemaining=consumeKeyCredit(currentKey);
+    creditDeductedForImage=true;
+    updateUsage();
+    console.log('[PIGCAT] 生成时扣除1次卡密，剩余'+creditsRemaining+'次');
+  }
+  
+  statusEl.textContent='正在生成...';
+  var n=+sizeRange.value;
+  var maxColors=+colorRange.value;
+  var brand=BRANDS[brandSelect.value];
+  var brandName=brand.name;
+  var paletteRgb=buildPaletteRgb(brand);
+
+  /* 显示网格 */
+  empty.style.display='none';
+  styleGrid.style.display='grid';
+  reuploadBtn.style.display='inline-block';
+  document.getElementById('adjustCard').style.display='block';
+
+  /* 风格1：直接像素化（同步） */
+  generateStyle('direct',0,n,maxColors,brand,brandName,paletteRgb,image);
+
+  /* 参数变化后重置背景去除状态 */
+  if(bgRemovedState['direct']){
+    bgRemovedState['direct']=false;
+    originalGrids['direct']=null;
+    var bgBtnDirect=document.getElementById('bgBtn_direct');
+    if(bgBtnDirect){bgBtnDirect.classList.remove('active');bgBtnDirect.textContent='去除背景';}
+  }
+
+  /* 风格2：AI卡通化 */
+  var aiCell=styleGrid.children[1];
+  var aiCanvasWrap=aiCell.querySelector('.style-cell-canvas');
+
+  /* 如果已有缓存的AI图片，直接使用，不重复调用API */
+  if(aiCartoonImage){
+    console.log('[PIGCAT] AI缓存命中，跳过API调用');
+    generateStyle('ai',1,n,maxColors,brand,brandName,paletteRgb,aiCartoonImage);
+    statusEl.textContent='已生成2种风格预览';
+    updateMetaAfterGenerate(n,brandName);
+    return;
+  }
+
+  /* 如果AI正在调用中，不重复调用 */
+  if(aiCartoonBusy){
+    console.log('[PIGCAT] AI正在调用中，跳过重复请求');
+    statusEl.textContent='AI卡通化处理中，请耐心等待...';
+    return;
+  }
+
+  /* 开始调用AI API */
+  aiCartoonBusy=true;
+  aiCell.classList.add('loading');
+  statusEl.textContent='AI卡通化处理中，请耐心等待...';
+  console.log('[PIGCAT] 发起AI API调用（每张图片仅调用一次）');
+
+  /* 显示可爱动物加载动画 */
+  showAiLoadingAnim(aiCanvasWrap);
+
+  /* 获取裁切后图片的dataURL */
+  var tmpCanvas=document.createElement('canvas');
+  tmpCanvas.width=image.width;tmpCanvas.height=image.height;
+  tmpCanvas.getContext('2d').drawImage(image,0,0);
+  var imgDataUrl=tmpCanvas.toDataURL('image/png');
+
+  aiCartoonize(imgDataUrl).then(function(cartoonDataUrl){
+    var aiImg=new Image();
+    aiImg.onload=function(){
+      /* 缓存AI结果 */
+      aiCartoonImage=aiImg;
+      aiCartoonBusy=false;
+      /* 移除加载动画 */
+      removeAiLoadingAnim(aiCanvasWrap);
+      /* 读取当前最新参数（用户可能在等待期间修改了参数） */
+      var cn=+sizeRange.value;
+      var cmaxColors=+colorRange.value;
+      var cbrand=BRANDS[brandSelect.value];
+      var cbrandName=cbrand.name;
+      var cpaletteRgb=buildPaletteRgb(cbrand);
+      generateStyle('ai',1,cn,cmaxColors,cbrand,cbrandName,cpaletteRgb,aiImg);
+      statusEl.textContent='已生成2种风格预览';
+      updateMetaAfterGenerate(cn,cbrandName);
+    };
+    aiImg.src=cartoonDataUrl;
+  }).catch(function(err){
+    /* 确保即使出错也重置状态 */
+    aiCartoonBusy=false;
+    aiCell.classList.remove('loading');
+    removeAiLoadingAnim(aiCanvasWrap);
+    var errMsg=err.message||err.toString()||'未知错误';
+    statusEl.textContent='AI处理失败：'+errMsg;
+    console.error('[PIGCAT] AI卡通化失败:',err);
+    toast('AI生图失败：'+errMsg.substring(0,80));
+    /* 在AI格子上显示错误提示 */
+    aiCanvasWrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;padding:16px;text-align:center">'+
+      '<div style="font-size:28px;margin-bottom:8px">&#x1F6A8;</div>'+
+      '<div style="font-size:13px;color:var(--primary);font-weight:700;margin-bottom:6px">AI生图失败</div>'+
+      '<div style="font-size:11px;color:var(--ink-soft);line-height:1.5;max-width:200px">'+errMsg.substring(0,150)+'</div>'+
+      '<div style="font-size:10px;color:var(--ink-soft);margin-top:8px">请重新上传图片重试</div>'+
+    '</div>';
+  });
+}
+
+function updateMetaAfterGenerate(n,brandName){
+  var firstResult=styleResults['direct'];
+  var firstTotal=0;
+  if(firstResult){
+    Object.keys(firstResult.counts).forEach(function(k){firstTotal+=firstResult.counts[k];});
+  }
+  metaEl.innerHTML=n+' × '+n+' 格 · <b>2种风格</b> · 共 '+firstTotal+' 颗(直接像素化) · '+brandName;
+  /* 保存到历史 */
+  STYLE_DEFS.forEach(function(def){
+    var r=styleResults[def.key];
+    if(r)saveToHistory(r.grid,r.palette,n,r.counts,brandName,def.key);
+  });
+}
+
+/* AI加载动画：可爱动物贴纸 */
+function showAiLoadingAnim(wrap){
+  removeAiLoadingAnim(wrap);
+  var div=document.createElement('div');
+  div.className='ai-loading-wrap';
+  div.innerHTML=
+    '<div class="ai-loading-animals">'+
+      '<span class="ani">&#x1F43B;</span>'+
+      '<span class="ani">&#x1F431;</span>'+
+      '<span class="ani">&#x1F43C;</span>'+
+      '<span class="ani">&#x1F436;</span>'+
+      '<span class="ani">&#x1F430;</span>'+
+    '</div>'+
+    '<div class="ai-loading-text">后台调用AI生成中，请您耐心等待~</div>'+
+    '<div class="ai-loading-sub">gpt-image-2 正在将照片卡通化...</div>';
+  wrap.appendChild(div);
+}
+function removeAiLoadingAnim(wrap){
+  var existing=wrap.querySelector('.ai-loading-wrap');
+  if(existing)existing.remove();
+}
+
+function generateStyle(key,idx,n,maxColors,brand,brandName,paletteRgb,sourceImage){
+  var cell=styleGrid.children[idx];
+
+  /* ============================================================
+     区域平均降采样（Area-Averaging Downsampling）
+     替代简单的双线性插值，确保每个拼豆像素准确反映对应图像区域的
+     平均颜色，大幅提升轮廓贴合度和画面清晰度
+     ============================================================ */
+  var srcW=sourceImage.width;
+  var srcH=sourceImage.height;
+  /* 限制最大处理尺寸，保证性能（AI输出已是低分辨率像素图，256足够） */
+  var maxSrcDim=256;
+  if(srcW>maxSrcDim||srcH>maxSrcDim){
+    var scale=maxSrcDim/Math.max(srcW,srcH);
+    srcW=Math.max(1,Math.round(srcW*scale));
+    srcH=Math.max(1,Math.round(srcH*scale));
+  }
+  /* 步骤1：将原图绘制到中间canvas（填充白底防透明）
+     使用全局缓存canvas避免每次生成时重复创建DOM对象 */
+  if(!window._sharedMidCanvas){
+    window._sharedMidCanvas=document.createElement('canvas');
+  }
+  var midCanvas=window._sharedMidCanvas;
+  midCanvas.width=srcW;
+  midCanvas.height=srcH;
+  var midCtx=midCanvas.getContext('2d');
+  midCtx.imageSmoothingEnabled=true;
+  midCtx.imageSmoothingQuality='high';
+  midCtx.fillStyle='#FFFFFF';
+  midCtx.fillRect(0,0,srcW,srcH);
+  midCtx.drawImage(sourceImage,0,0,srcW,srcH);
+  var srcData=midCtx.getImageData(0,0,srcW,srcH).data;
+
+  /* 步骤2：区域平均 — 每个输出像素取对应源区域的颜色平均值 */
+  var imgData=midCtx.createImageData(n,n);
+  var data=imgData.data;
+  var xBlock=srcW/n;
+  var yBlock=srcH/n;
+
+  for(var dy=0;dy<n;dy++){
+    for(var dx=0;dx<n;dx++){
+      var xStart=Math.floor(dx*xBlock);
+      var xEnd=Math.min(srcW,Math.floor((dx+1)*xBlock));
+      var yStart=Math.floor(dy*yBlock);
+      var yEnd=Math.min(srcH,Math.floor((dy+1)*yBlock));
+      /* 至少采样1个像素 */
+      if(xEnd<=xStart)xEnd=xStart+1;
+      if(yEnd<=yStart)yEnd=yStart+1;
+
+      var rSum=0,gSum=0,bSum=0,aSum=0,cnt=0;
+      for(var sy=yStart;sy<yEnd;sy++){
+        for(var sx=xStart;sx<xEnd;sx++){
+          var si=(sy*srcW+sx)*4;
+          rSum+=srcData[si];
+          gSum+=srcData[si+1];
+          bSum+=srcData[si+2];
+          aSum+=srcData[si+3];
+          cnt++;
+        }
+      }
+      var di=(dy*n+dx)*4;
+      if(cnt>0){
+        data[di]=Math.round(rSum/cnt);
+        data[di+1]=Math.round(gSum/cnt);
+        data[di+2]=Math.round(bSum/cnt);
+        data[di+3]=Math.round(aSum/cnt);
+      }
+      /* 透明像素填充白色 */
+      if(data[di+3]<128){
+        data[di]=255;data[di+1]=255;data[di+2]=255;data[di+3]=255;
+      }
+    }
+  }
+
+  var selectedPalette=selectBeadColors(data,paletteRgb,maxColors);
+  var result=quantize(data,selectedPalette);
+
+  styleResults[key]={
+    grid:result.grid,
+    palette:selectedPalette,
+    counts:result.counts,
+    n:n,
+    brandName:brandName
+  };
+
+  /* 渲染bead层（仅拼豆像素） */
+  var bc=styleCanvases[idx];
+  bc.style.display='block';
+  render(bc,result.grid,selectedPalette,n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:brandName,
+    layer:'beads'
+  });
+  bc._natW=canvasNaturalW;
+  bc._natH=canvasNaturalH;
+
+  /* 渲染overlay层（网格/色号/标尺） */
+  var oc=overlayCanvases[idx];
+  oc.style.display='block';
+  render(oc,result.grid,selectedPalette,n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:false,
+    brandName:brandName,
+    layer:'overlay'
+  });
+
+  var totalBeads=0;
+  Object.keys(result.counts).forEach(function(k){totalBeads+=result.counts[k];});
+  cell.querySelector('.meta-mini').textContent=selectedPalette.length+'色 · '+totalBeads+'颗';
+  cell.classList.remove('loading');
+
+  fitCanvas();
+  if(styleResults[selectedStyle]){
+    renderLegend(styleResults[selectedStyle].palette,styleResults[selectedStyle].counts);
+  }
+}
+
+function loadFile(file){
+  if(!file)return;
+  if(file.size>15*1024*1024){toast('上传图片要在15MB以内哦~');input.value='';return;}
+  // 检查卡密
+  if(creditsRemaining<=0){
+    toast('请先输入卡密');
+    modal.classList.add('open');
+    input.value='';
+    return;
+  }
+  /* 加载新图片时清除AI缓存，确保每张新图片只调用一次API */
+  aiCartoonImage=null;
+  aiCartoonBusy=false;
+  /* 重置扣费标记，新图片生成时重新扣费 */
+  creditDeductedForImage=false;
+  /* 清除旧的加载动画 */
+  STYLE_DEFS.forEach(function(def,i){
+    var cell=styleGrid.children[i];
+    if(cell)removeAiLoadingAnim(cell.querySelector('.style-cell-canvas'));
+    cell.classList.remove('loading');
+  });
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      saveToUploadHistory(e.target.result);
+      showCropModal(img);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value=''; /* 重置，允许下次选同一文件 */
+}
+
+uploadBtn.onclick=function(){input.click();};
+input.onchange=function(){loadFile(input.files[0]);};
+
+/* 点击拖拽区域任意位置也可打开文件选择 */
+dropzone.onclick=function(e){
+  /* 如果点击的是按钮或文件输入，不重复触发 */
+  if(e.target===uploadBtn||e.target===input)return;
+  /* 点击风格网格内部元素时不触发文件选择 */
+  if(styleGrid.contains(e.target))return;
+  if(image)return; /* 已有图片时不触发 */
+  input.click();
+};
+
+dropzone.ondragover=function(e){e.preventDefault();dropzone.classList.add('dragover');};
+dropzone.ondragleave=function(){dropzone.classList.remove('dragover');};
+dropzone.ondrop=function(e){
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  loadFile(e.dataTransfer.files[0]);
+};
+
+// 重新上传
+reuploadBtn.onclick=function(){
+  image=null;
+  aiCartoonImage=null; /* 清除AI缓存 */
+  aiCartoonBusy=false;
+  creditDeductedForImage=false; /* 重置扣费标记 */
+  styleResults={};
+  bgRemovedState={};  /* 清除背景去除状态 */
+  originalGrids={};    /* 清除原始grid缓存 */
+  STYLE_DEFS.forEach(function(def,i){
+    var bc=styleCanvases[i];
+    bc.style.display='none';
+    bc._natW=0;bc._natH=0;
+    bc.style.filter='';
+    var oc=overlayCanvases[i];
+    oc.style.display='none';
+    var cell=styleGrid.children[i];
+    cell.querySelector('.meta-mini').textContent='-';
+    removeAiLoadingAnim(cell.querySelector('.style-cell-canvas'));
+    /* 重置去除背景按钮 */
+    var bgBtn=cell.querySelector('.bg-btn');
+    if(bgBtn){bgBtn.classList.remove('active');bgBtn.textContent='去除背景';}
+  });
+  styleGrid.style.display='none';
+  reuploadBtn.style.display='none';
+  empty.style.display='block';
+  statusEl.textContent='等待上传';
+  metaEl.textContent='尚未生成图纸';
+  document.getElementById('legendCard').style.display='none';
+  document.getElementById('adjustCard').style.display='none';
+  input.value='';
+};
+
+// 参数变化即时重生成（跳过卡密检查，不重复扣费）
+function onParamChange(){
+  document.getElementById('sizeValue').textContent=sizeRange.value+' × '+sizeRange.value;
+  document.getElementById('colorValue').textContent=colorRange.value+' 色';
+  generate(true); /* skipCreditCheck=true：参数变化不触发卡密弹窗 */
+}
+[sizeRange,colorRange,brandSelect,gridCheck,labelCheck,rulerCheck].forEach(function(x){
+  x.addEventListener('input',onParamChange);
+  x.addEventListener('change',onParamChange);
+});
+
+// 导出单个风格
+function renderExportCanvas(r){
+  /* 渲染beads层（拼豆像素+白色背景） */
+  var beadsCanvas=document.createElement('canvas');
+  render(beadsCanvas,r.grid,r.palette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:true,
+    counts:r.counts,
+    brandName:r.brandName,
+    layer:'beads'
+  });
+  /* 只对beads层应用图像调节，不影响overlay */
+  applyAdjustmentsToCanvas(beadsCanvas);
+  /* 渲染overlay层（网格/色号/标尺/图例/水印） */
+  var overlayCanvas=document.createElement('canvas');
+  render(overlayCanvas,r.grid,r.palette,r.n,{
+    showGrid:gridCheck.checked,
+    showLabels:labelCheck.checked,
+    showRuler:rulerCheck.checked,
+    isExport:true,
+    counts:r.counts,
+    brandName:r.brandName,
+    layer:'overlay'
+  });
+  /* 合成：将overlay叠加到beads上 */
+  var ctx=beadsCanvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(overlayCanvas,0,0);
+  return beadsCanvas;
+}
+
+function exportStyle(key){
+  var r=styleResults[key];
+  if(!r){toast('该风格尚未生成');return;}
+  var def=STYLE_DEFS.find(function(d){return d.key===key;});
+  var exportCanvas=renderExportCanvas(r);
+  var a=document.createElement('a');
+  a.download='pigcat-'+def.key+'-hd.png';
+  a.href=exportCanvas.toDataURL('image/png');
+  a.click();
+  toast('「'+def.name+'」已导出高清图纸');
+}
+
+/* ============================================================
+   十一、导航与弹窗
+   ============================================================ */
+var modal=document.getElementById('modal');
+var cardKeyInput=document.getElementById('cardKeyInput');
+
+document.getElementById('closeModal').onclick=function(){modal.classList.remove('open');};
+
+/* 点击侧边栏卡密状态区域打开输入弹窗 */
+document.querySelector('.usage').style.cursor='pointer';
+document.querySelector('.usage').onclick=function(){modal.classList.add('open');setTimeout(function(){cardKeyInput.focus();},100);};
+
+document.getElementById('payBtn').onclick=function(){
+  var key=(cardKeyInput.value||'').trim().toUpperCase();
+  if(!key){toast('请输入卡密');return;}
+  // 检查是否有效
+  var valid=validateKey(key);
+  if(!valid){toast('卡密无效，请检查输入');return;}
+  // 从localStorage读取剩余次数
+  var remaining=getKeyRemaining(key);
+  if(remaining<=0){toast('该卡密次数已用完，请更换');return;}
+  // 验证成功
+  currentKey=key;
+  creditsRemaining=remaining;
+  updateUsage();
+  modal.classList.remove('open');
+  cardKeyInput.value='';
+  toast('卡密验证成功！剩余 '+creditsRemaining+' 次可用');
+};
+
+// 回车提交
+cardKeyInput.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){document.getElementById('payBtn').click();}
+});
+
+// 导航切换
+var navNew=document.getElementById('navNew');
+var navMyPatterns=document.getElementById('navMyPatterns');
+var patternsOverlay=document.getElementById('patternsOverlay');
+var closePatterns=document.getElementById('closePatterns');
+
+navNew.onclick=function(){
+  navNew.classList.add('active');
+  navMyPatterns.classList.remove('active');
+  document.getElementById('crumbTitle').textContent='新建图纸';
+  // 滚动到顶部
+  document.getElementById('mainContent').scrollIntoView({behavior:'smooth'});
+};
+
+navMyPatterns.onclick=function(){
+  navMyPatterns.classList.add('active');
+  navNew.classList.remove('active');
+  document.getElementById('crumbTitle').textContent='我的图纸';
+  renderAllPatterns();
+  patternsOverlay.classList.add('open');
+};
+
+closePatterns.onclick=function(){
+  patternsOverlay.classList.remove('open');
+  navNew.classList.add('active');
+  navMyPatterns.classList.remove('active');
+  document.getElementById('crumbTitle').textContent='新建图纸';
+};
+
+// 查看全部链接
+document.getElementById('viewAllLink').onclick=function(){
+  renderAllPatterns();
+  patternsOverlay.classList.add('open');
+};
+
+// 点击遮罩关闭
+patternsOverlay.onclick=function(e){
+  if(e.target===patternsOverlay){
+    closePatterns.onclick();
+  }
+};
+
+/* ============================================================
+   图片裁切功能（完全自由拖拽）
+   ============================================================ */
+var cropOverlay=document.getElementById('cropOverlay');
+var cropCanvas=document.getElementById('cropCanvas');
+var cropRectEl=document.getElementById('cropRect');
+var pendingImage=null;
+var cropState={x:0,y:0,w:0,h:0};
+var cropDispW=0,cropDispH=0;
+
+function showCropModal(img){
+  pendingImage=img;
+  var ctx=cropCanvas.getContext('2d');
+  var maxW=528,maxH=380;
+  var scale=Math.min(maxW/img.width,maxH/img.height,1);
+  cropDispW=Math.round(img.width*scale);
+  cropDispH=Math.round(img.height*scale);
+  cropCanvas.width=cropDispW;
+  cropCanvas.height=cropDispH;
+  cropCanvas.style.width=cropDispW+'px';
+  cropCanvas.style.height=cropDispH+'px';
+  ctx.drawImage(img,0,0,cropDispW,cropDispH);
+  /* 默认裁切框为图片中央80%区域 */
+  cropState.w=Math.round(cropDispW*0.8);
+  cropState.h=Math.round(cropDispH*0.8);
+  cropState.x=Math.round((cropDispW-cropState.w)/2);
+  cropState.y=Math.round((cropDispH-cropState.h)/2);
+  updateCropRect();
+  cropOverlay.classList.add('open');
+}
+
+function updateCropRect(){
+  cropRectEl.style.left=cropState.x+'px';
+  cropRectEl.style.top=cropState.y+'px';
+  cropRectEl.style.width=cropState.w+'px';
+  cropRectEl.style.height=cropState.h+'px';
+}
+
+function clampCropState(mode){
+  var minSize=30;
+  if(cropState.w<minSize)cropState.w=minSize;
+  if(cropState.h<minSize)cropState.h=minSize;
+  if(cropState.x<0)cropState.x=0;
+  if(cropState.y<0)cropState.y=0;
+  /* 右侧/下侧手柄：限制w/h而不是移动x/y */
+  if(cropState.x+cropState.w>cropDispW){
+    if(mode==='r'||mode==='br'||mode==='tr'){
+      cropState.w=cropDispW-cropState.x;
+    }else{
+      cropState.x=cropDispW-cropState.w;
+      if(cropState.x<0){cropState.x=0;cropState.w=cropDispW;}
+    }
+  }
+  if(cropState.y+cropState.h>cropDispH){
+    if(mode==='b'||mode==='br'||mode==='bl'){
+      cropState.h=cropDispH-cropState.y;
+    }else{
+      cropState.y=cropDispH-cropState.h;
+      if(cropState.y<0){cropState.y=0;cropState.h=cropDispH;}
+    }
+  }
+}
+
+function startCropDrag(e,mode){
+  e.preventDefault();e.stopPropagation();
+  /* 捕获指针确保拖拽中不会丢失事件 */
+  try{e.target.setPointerCapture(e.pointerId);}catch(err){}
+  var startX=e.clientX,startY=e.clientY;
+  var orig={x:cropState.x,y:cropState.y,w:cropState.w,h:cropState.h};
+  function onMove(ev){
+    ev.preventDefault();
+    var dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(mode==='move'){
+      cropState.x=orig.x+dx;
+      cropState.y=orig.y+dy;
+    }else if(mode==='br'){
+      cropState.w=orig.w+dx;
+      cropState.h=orig.h+dy;
+    }else if(mode==='tl'){
+      cropState.x=orig.x+dx;
+      cropState.y=orig.y+dy;
+      cropState.w=orig.w-dx;
+      cropState.h=orig.h-dy;
+    }else if(mode==='tr'){
+      cropState.y=orig.y+dy;
+      cropState.w=orig.w+dx;
+      cropState.h=orig.h-dy;
+    }else if(mode==='bl'){
+      cropState.x=orig.x+dx;
+      cropState.w=orig.w-dx;
+      cropState.h=orig.h+dy;
+    }else if(mode==='t'){
+      cropState.y=orig.y+dy;
+      cropState.h=orig.h-dy;
+    }else if(mode==='b'){
+      cropState.h=orig.h+dy;
+    }else if(mode==='l'){
+      cropState.x=orig.x+dx;
+      cropState.w=orig.w-dx;
+    }else if(mode==='r'){
+      cropState.w=orig.w+dx;
+    }
+    clampCropState(mode);
+    updateCropRect();
+  }
+  function onUp(ev){
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    document.removeEventListener('pointercancel',onUp);
+  }
+  document.addEventListener('pointermove',onMove,{passive:false});
+  document.addEventListener('pointerup',onUp);
+  document.addEventListener('pointercancel',onUp);
+}
+
+/* 绑定拖拽事件（使用pointer events统一鼠标和触摸） */
+function bindCropDrag(selector,mode){
+  var el=cropRectEl.querySelector(selector);
+  if(!el)return;
+  el.addEventListener('pointerdown',function(e){
+    startCropDrag(e,mode);
+  });
+}
+cropRectEl.addEventListener('pointerdown',function(e){
+  if(e.target.classList.contains('crop-handle'))return;
+  startCropDrag(e,'move');
+});
+bindCropDrag('.crop-handle-br','br');
+bindCropDrag('.crop-handle-tl','tl');
+bindCropDrag('.crop-handle-tr','tr');
+bindCropDrag('.crop-handle-bl','bl');
+bindCropDrag('.crop-handle-t','t');
+bindCropDrag('.crop-handle-b','b');
+bindCropDrag('.crop-handle-l','l');
+bindCropDrag('.crop-handle-r','r');
+
+document.getElementById('confirmCropBtn').onclick=function(){
+  if(!pendingImage)return;
+  var scaleX=pendingImage.width/cropDispW;
+  var scaleY=pendingImage.height/cropDispH;
+  var srcX=cropState.x*scaleX;
+  var srcY=cropState.y*scaleY;
+  var srcW=cropState.w*scaleX;
+  var srcH=cropState.h*scaleY;
+  var cc=document.createElement('canvas');
+  cc.width=Math.round(srcW);
+  cc.height=Math.round(srcH);
+  var cctx=cc.getContext('2d');
+  cctx.drawImage(pendingImage,srcX,srcY,srcW,srcH,0,0,cc.width,cc.height);
+  var croppedImg=new Image();
+  croppedImg.onload=function(){
+    image=croppedImg;
+    cropOverlay.classList.remove('open');
+    pendingImage=null;
+    /* 显示提示词输入弹窗 */
+    showPromptDialog();
+  };
+  croppedImg.src=cc.toDataURL('image/png');
+};
+
+document.getElementById('skipCropBtn').onclick=function(){
+  if(!pendingImage)return;
+  image=pendingImage;
+  cropOverlay.classList.remove('open');
+  pendingImage=null;
+  /* 显示提示词输入弹窗 */
+  showPromptDialog();
+};
+
+document.getElementById('closeCropBtn').onclick=function(){
+  cropOverlay.classList.remove('open');
+  pendingImage=null;
+};
+
+/* ============================================================
+   提示词输入弹窗与AI提示词优化
+   ============================================================ */
+var promptOverlay=document.getElementById('promptOverlay');
+var userPromptInput=document.getElementById('userPromptInput');
+var promptCharCount=document.getElementById('promptCharCount');
+var userPromptText=''; /* 用户输入的提示词 */
+
+/* 字数计数 */
+userPromptInput.addEventListener('input',function(){
+  var len=userPromptInput.value.length;
+  promptCharCount.textContent=len+' / 50';
+  promptCharCount.style.color=len>45?'var(--primary)':'var(--ink-soft)';
+});
+
+/* 显示提示词弹窗 */
+function showPromptDialog(){
+  userPromptInput.value='';
+  promptCharCount.textContent='0 / 50';
+  promptOverlay.classList.add('open');
+  setTimeout(function(){userPromptInput.focus();},200);
+}
+
+/* 关闭弹窗 */
+document.getElementById('closePromptBtn').onclick=function(){
+  promptOverlay.classList.remove('open');
+};
+
+/* 跳过描述 — 不使用提示词直接生成 */
+document.getElementById('skipPromptBtn').onclick=function(){
+  userPromptText='';
+  promptOverlay.classList.remove('open');
+  generate();
+};
+
+/* 开始生成 — 优化提示词后生成 */
+document.getElementById('startGenerateBtn').onclick=function(){
+  userPromptText=(userPromptInput.value||'').trim();
+  if(userPromptText.length===0){
+    /* 未输入描述则直接生成 */
+    promptOverlay.classList.remove('open');
+    generate();
+    return;
+  }
+  /* 禁用按钮，显示优化状态 */
+  var btn=document.getElementById('startGenerateBtn');
+  var skipBtn=document.getElementById('skipPromptBtn');
+  btn.disabled=true;
+  skipBtn.disabled=true;
+  btn.textContent='正在优化提示词...';
+
+  /* 调用后端优化提示词 */
+  optimizePrompt(userPromptText).then(function(optimized){
+    console.log('[PIGCAT] 提示词优化完成:',optimized);
+    userPromptText=optimized;
+    promptOverlay.classList.remove('open');
+    btn.disabled=false;
+    skipBtn.disabled=false;
+    btn.textContent='开始生成';
+    generate();
+  }).catch(function(err){
+    console.warn('[PIGCAT] 提示词优化失败，使用原始提示词:',err.message||err);
+    promptOverlay.classList.remove('open');
+    btn.disabled=false;
+    skipBtn.disabled=false;
+    btn.textContent='开始生成';
+    generate();
+  });
+};
+
+/* 回车提交 */
+userPromptInput.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();
+    document.getElementById('startGenerateBtn').click();
+  }
+});
+
+/* 调用后端API优化用户提示词 */
+function optimizePrompt(userPrompt){
+  return fetch('/api/optimize-prompt',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt:userPrompt})
+  }).then(function(resp){
+    if(!resp.ok)throw new Error('优化API错误 '+resp.status);
+    return resp.json();
+  }).then(function(data){
+    if(data.optimized)return data.optimized;
+    throw new Error('优化结果为空');
+  });
+}
+
+/* 页面加载时自动弹出卡密验证 */
+setTimeout(function(){
+  if(creditsRemaining<=0){
+    modal.classList.add('open');
+    setTimeout(function(){cardKeyInput.focus();},200);
+  }
+},300);
+
+function toast(t){
+  var el=document.getElementById('toast');
+  el.textContent=t;el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');},2800);
+}
+
+/* ============================================================
+   十二、CSS box-shadow 像素画工具
+   ============================================================ */
+function buildPixelArt(sprite,colorMap,px){
+  var shadows=[];
+  for(var y=0;y<sprite.length;y++){
+    var row=sprite[y];
+    for(var x=0;x<row.length;x++){
+      var ch=row[x];
+      if(ch==='.'||ch===' ')continue;
+      var color=colorMap[ch];
+      if(!color)continue;
+      shadows.push((x*px)+'px '+(y*px)+'px 0 '+color);
+    }
+  }
+  return shadows.join(',');
+}
+
+/* 小熊 logo：还原参考图 —— 圆耳朵+粉色内耳+花朵(粉瓣+黄花蕊+绿叶)+豆豆眼+腮红+鼻子+嘴巴 */
+var BEAR_SPRITE=[
+  '....EE..EE......',
+  '...EeeEEeeE.....',
+  '..FFEEEEEEEE....',
+  '.FfYEEEEEEEEEE..',
+  '.LfEEEEEEEEEEE..',
+  'EEEEEEEEEEEEEE..',
+  'EEEwKKEEEwKKEEE.',
+  'EEEEKKEEEEKKEEEE',
+  'EEEEEEEEEEEEEEEE',
+  'EPPEEMMMMEEPPEEE',
+  'EEMMMMMMMMMMMMEE',
+  'EEMMMNNNNMMMMEEE',
+  'EEMMMMMMMMMMMMEE',
+  'EEMMMhMhMMMMMMEE',
+  '.EEEEEEEEEEEEEE.',
+  '..EEEEEEEEEEEE..'
+];
+var BEAR_COLORS={
+  'E':'#8B5A2B',
+  'e':'#FFB6C1',
+  'K':'#2D1B14',
+  'w':'#FFFFFF',
+  'P':'#FF9999',
+  'M':'#DEB887',
+  'N':'#3E2723',
+  'h':'#654321',
+  'F':'#FF69B4',
+  'f':'#FFB6C1',
+  'Y':'#FFD700',
+  'L':'#4CAF50'
+};
+
+/* 像素小动物装饰精灵 */
+var CAT_SPRITE=[
+  '..O....O..',
+  '.OOO..OOO.',
+  'OOOOOOOOOO',
+  'OKOOOOOOKO',
+  'OOOOPPOOOO',
+  'OOOOOOOOOO',
+  '.OOOOOOOO.',
+  '..OOOOOO..',
+  '...OOOO...'
+];
+var CAT_COLORS={'O':'#FF8C42','K':'#2C2C2C','P':'#FF8FA3'};
+
+var RABBIT_SPRITE=[
+  '.W......W.',
+  '.WW....WW.',
+  '.WW....WW.',
+  '..WWWWWW..',
+  '.WKWWWWKW.',
+  '.WWWPWWWW.',
+  '..WWWWWW..',
+  '...WWWW...',
+  '....WW....'
+];
+var RABBIT_COLORS={'W':'#FFFFFF','K':'#2C2C2C','P':'#FF8FA3'};
+
+var STAR_SPRITE=[
+  '...S...',
+  '...S...',
+  'SSSSSSS',
+  '.SSSSS.',
+  '..SSS..',
+  '.S.S.S.',
+  'S.....S'
+];
+var STAR_COLORS={'S':'#FFD93D'};
+
+var HEART_SPRITE=[
+  '.PP.PP.',
+  'PPPPPPP',
+  'PPPPPPP',
+  '.PPPPP.',
+  '..PPP..',
+  '...P...'
+];
+var HEART_COLORS={'P':'#FF6B6B'};
+
+var FLOWER_SPRITE=[
+  '.F.F.',
+  'FFFYF',
+  'FYFFF',
+  '.FFF.',
+  '..f..'
+];
+var FLOWER_COLORS={'F':'#FF69B4','Y':'#FFD700','f':'#FFB6C1'};
+
+var CLOUD_SPRITE=[
+  '..CCCCC..',
+  '.CCCCCCC.',
+  'CCCCCCCCC',
+  '.CCCCCCC.'
+];
+var CLOUD_COLORS={'C':'#E3F2FD'};
+
+var MUSHROOM_SPRITE=[
+  '..RRRRR..',
+  '.RRRWRRR.',
+  'RRRRRRRRR',
+  'RWRRRRRWR',
+  '..WWWWW..',
+  '..WBBBW..',
+  '..WBBBW..',
+  '..WWWWW..'
+];
+var MUSHROOM_COLORS={'R':'#FF6B6B','W':'#FFFFFF','B':'#8B5A2B'};
+
+var RAINBOW_SPRITE=[
+  '..RRRRR..',
+  '.ROOOOOOR.',
+  'ROYOOOOYOR',
+  'ROYGGGGYOR',
+  '.OYGGGGGYO',
+  '..OBBBBBO.',
+  '...BBBBB..'
+];
+var RAINBOW_COLORS={'R':'#FF6B6B','O':'#FF8C42','Y':'#FFD93D','G':'#7FD8A0','B':'#41CCFF'};
+
+var LEAF_SPRITE=[
+  '..G..',
+  '.GGG.',
+  'GGdGG',
+  '.GGG.',
+  '..G..'
+];
+var LEAF_COLORS={'G':'#7FD8A0','d':'#4CAF50'};
+
+// 注入小熊 logo
+(function(){
+  var logo=document.getElementById('bearLogo');
+  var px=3;
+  logo.style.width=px+'px';
+  logo.style.height=px+'px';
+  logo.style.boxShadow=buildPixelArt(BEAR_SPRITE,BEAR_COLORS,px);
+})();
+
+// 在装饰层随机撒入像素小动物
+(function(){
+  var decor=document.getElementById('decor');
+  var sprites=[
+    {sprite:CAT_SPRITE,colors:CAT_COLORS},
+    {sprite:RABBIT_SPRITE,colors:RABBIT_COLORS},
+    {sprite:STAR_SPRITE,colors:STAR_COLORS},
+    {sprite:HEART_SPRITE,colors:HEART_COLORS},
+    {sprite:FLOWER_SPRITE,colors:FLOWER_COLORS},
+    {sprite:CLOUD_SPRITE,colors:CLOUD_COLORS},
+    {sprite:MUSHROOM_SPRITE,colors:MUSHROOM_COLORS},
+    {sprite:LEAF_SPRITE,colors:LEAF_COLORS},
+    {sprite:STAR_SPRITE,colors:STAR_COLORS},
+    {sprite:HEART_SPRITE,colors:HEART_COLORS}
+  ];
+  var count=24;
+  var vw=window.innerWidth,vh=window.innerHeight;
+  for(var i=0;i<count;i++){
+    var pick=sprites[Math.floor(Math.random()*sprites.length)];
+    var px=2+Math.floor(Math.random()*2);
+    var el=document.createElement('div');
+    el.className='sprite s'+(1+Math.floor(Math.random()*3));
+    el.style.width=px+'px';
+    el.style.height=px+'px';
+    el.style.boxShadow=buildPixelArt(pick.sprite,pick.colors,px);
+    el.style.left=Math.floor(Math.random()*vw)+'px';
+    el.style.top=Math.floor(Math.random()*vh)+'px';
+    el.style.transform='rotate('+(Math.floor(Math.random()*40)-20)+'deg)';
+    el.style.animation='floatDeco '+(3+Math.random()*4)+'s ease-in-out infinite';
+    el.style.animationDelay=(Math.random()*3)+'s';
+    decor.appendChild(el);
+  }
+})();
+
+// 初始化
+updateUsage();
+renderRecentProjects();
+
+})();
+</script>
+
+</body>
+</html>

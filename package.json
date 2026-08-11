@@ -1,0 +1,13 @@
+{
+  "name": "pigcat-beadloom-studio",
+  "version": "1.0.0",
+  "description": "PIGCAT拼豆工坊 - 拼豆图纸生成器",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

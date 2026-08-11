@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIGCAT 卡密生成器 · 管理后台</title>
+<style>
+@font-face{font-family:'Pixel';src:url('./_shared/fonts/PixelifySans-Medium.ttf')}
+:root{
+  --bg:#FFF8EE;--surface:#FFFFFF;--surface-2:#FFF1E0;
+  --primary:#FF8C42;--secondary:#FF6B6B;--accent:#FFD93D;
+  --pink:#FFB6C1;--mint:#7FD8A0;
+  --ink:#5C3317;--ink-soft:#8B5A3C;--muted:#B89A7A;
+  --line:#5C3317;--line-soft:#E8D5BD;
+  --shadow:4px 4px 0 rgba(92,51,23,.15);
+  --shadow-sm:2px 2px 0 rgba(92,51,23,.15);
+  --radius:14px;--radius-sm:10px;--radius-btn:8px;
+  --font-display:'Pixel','Courier New',monospace;
+  --font-body:'Courier New',monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);
+  background-image:radial-gradient(rgba(255,140,66,.10) 1.5px,transparent 1.5px);
+  background-size:28px 28px;
+  color:var(--ink);font-family:var(--font-body);line-height:1.5;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.container{
+  background:var(--surface);border:2.5px solid var(--line);
+  box-shadow:var(--shadow);border-radius:var(--radius);
+  padding:32px;max-width:560px;width:100%;
+}
+h1{
+  font-family:var(--font-display);font-size:26px;margin:0 0 6px;
+  display:flex;align-items:center;gap:8px;
+}
+.subtitle{color:var(--ink-soft);font-size:13px;margin:0 0 24px}
+.gen-area{
+  background:var(--surface-2);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:20px;margin-bottom:20px;
+}
+.gen-area label{display:block;font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink-soft)}
+.gen-row{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+input[type="number"]{
+  width:80px;padding:8px 10px;border:2px solid var(--line);
+  border-radius:var(--radius-btn);font-family:var(--font-display);
+  font-size:16px;font-weight:700;text-align:center;background:var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.btn{
+  background:var(--primary);color:#fff;border:none;
+  padding:10px 20px;font-weight:700;font-family:var(--font-body);
+  border-radius:var(--radius-btn);box-shadow:2px 2px 0 var(--line);
+  cursor:pointer;transition:transform .06s,box-shadow .06s;
+}
+.btn:hover{background:#FF7A28}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--line)}
+.btn-mint{background:var(--mint)}
+.btn-mint:hover{background:#6BC88F}
+.key-list{
+  max-height:360px;overflow-y:auto;
+  border:2px solid var(--line-soft);border-radius:var(--radius-sm);
+  background:var(--surface);
+}
+.key-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--line-soft);
+  font-family:var(--font-display);font-size:15px;font-weight:700;
+  letter-spacing:.03em;
+}
+.key-item:last-child{border-bottom:none}
+.key-item .copy-btn{
+  background:var(--accent);color:var(--ink);border:1.5px solid var(--line);
+  padding:3px 10px;font-size:11px;font-weight:700;
+  border-radius:6px;cursor:pointer;box-shadow:1px 1px 0 var(--line);
+}
+.key-item .copy-btn:hover{background:#F5CB2E}
+.key-item .copy-btn:active{transform:translate(1px,1px);box-shadow:0 0 0}
+.empty{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+.stats{
+  display:flex;gap:12px;margin-bottom:16px;
+}
+.stat-box{
+  flex:1;background:var(--surface-2);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:12px;text-align:center;
+}
+.stat-box .num{font-family:var(--font-display);font-size:24px;color:var(--primary);font-weight:700}
+.stat-box .label{font-size:10px;color:var(--ink-soft);margin-top:2px}
+.note{
+  background:#FFF3D6;border-left:4px solid var(--accent);
+  padding:10px 12px;font-size:11px;color:var(--ink-soft);
+  border-radius:0 var(--radius-btn) var(--radius-btn) 0;
+  margin-top:16px;line-height:1.5;
+}
+.export-btn{
+  width:100%;background:var(--mint);color:#fff;border:none;
+  padding:10px;font-weight:700;border-radius:var(--radius-btn);
+  box-shadow:2px 2px 0 var(--line);cursor:pointer;margin-top:10px;
+}
+.export-btn:hover{background:#6BC88F}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>&#x1F511; PIGCAT 卡密生成器</h1>
+  <p class="subtitle">管理后台 · 生成随机卡密供用户使用</p>
+
+  <div class="stats">
+    <div class="stat-box"><div class="num" id="totalCount">0</div><div class="label">已生成卡密</div></div>
+    <div class="stat-box"><div class="num" id="copiedCount">0</div><div class="label">已复制</div></div>
+  </div>
+
+  <div class="gen-area">
+    <label for="planSelect">卡密套餐</label>
+    <div class="gen-row">
+      <select id="planSelect"><option value="A">1 次</option><option value="B">3 次</option><option value="C">5 次</option><option value="D">10 次</option></select>
+      <input type="number" id="genCount" value="5" min="1" max="100">
+      <button class="btn" id="genBtn">&#x2728; 生成卡密</button>
+      <button class="btn btn-mint" id="clearBtn">&#x1F5D1; 清空</button>
+    </div>
+    <label>批量导出</label>
+    <button class="export-btn" id="exportBtn">&#x1F4E5; 导出为TXT文件</button>
+  </div>
+
+  <div class="key-list" id="keyList">
+    <div class="empty">点击「生成卡密」按钮开始</div>
+  </div>
+
+  <div class="note">
+    卡密格式：PC-XXXX-XXXX-XXXX（X为字母或数字）。<br>
+    将生成的卡密填入 PIGCAT 拼豆工坊的卡密输入框即可使用。每个卡密可生成对应次数，导出高清图纸每次消耗 1 次，用完后自动失效。<br>
+    注意：卡密列表仅保存在当前页面，刷新页面后清空。请及时导出。
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var allKeys=[];
+var copiedCount=0;
+
+/* 随机字符池（排除易混淆字符 O/0/I/1） */
+var CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function randomChar(){
+  return CHARS[Math.floor(Math.random()*CHARS.length)];
+}
+
+/* 校验码计算：前11位字符的索引之和取模，生成第12位校验字符 */
+function calcChecksum(chars11){
+  var sum=0;
+  for(var i=0;i<chars11.length;i++){
+    sum+=CHARS.indexOf(chars11[i]);
+  }
+  return CHARS[sum%CHARS.length];
+}
+
+function generateKey(plan){
+  /* 首字符为套餐标识，其余10位随机 */
+  var chars11=plan;
+  for(var i=1;i<11;i++){
+    chars11+=randomChar();
+  }
+  /* 第12位为校验码 */
+  var checksum=calcChecksum(chars11);
+  var all12=chars11+checksum;
+  /* 格式化为 PC-XXXX-XXXX-XXXX */
+  var parts=[
+    all12.substring(0,4),
+    all12.substring(4,8),
+    all12.substring(8,12)
+  ];
+  return 'PC-'+parts.join('-');
+}
+
+function renderList(){
+  var container=document.getElementById('keyList');
+  if(allKeys.length===0){
+    container.innerHTML='<div class="empty">点击「生成卡密」按钮开始</div>';
+    document.getElementById('totalCount').textContent='0';
+    return;
+  }
+  var html='';
+  allKeys.forEach(function(key,i){
+    html+='<div class="key-item">'+
+      '<span>'+(i+1)+'. '+key+'</span>'+
+      '<button class="copy-btn" data-key="'+key+'">复制</button>'+
+      '</div>';
+  });
+  container.innerHTML=html;
+  document.getElementById('totalCount').textContent=allKeys.length;
+
+  /* 绑定复制事件 */
+  container.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.onclick=function(){
+      var key=this.dataset.key;
+      /* 使用临时textarea复制 */
+      var ta=document.createElement('textarea');
+      ta.value=key;
+      ta.style.position='fixed';
+      ta.style.opacity='0';
+      document.body.appendChild(ta);
+      ta.select();
+      try{
+        document.execCommand('copy');
+        copiedCount++;
+        document.getElementById('copiedCount').textContent=copiedCount;
+        this.textContent='已复制!';
+        var self=this;
+        setTimeout(function(){self.textContent='复制';},1500);
+      }catch(e){
+        /* 复制失败时手动选中 */
+        ta.select();
+      }
+      document.body.removeChild(ta);
+    };
+  });
+}
+
+document.getElementById('genBtn').onclick=function(){
+  var count=parseInt(document.getElementById('genCount').value)||1;
+  if(count<1)count=1;
+  if(count>100)count=100;
+  var existing={};
+  allKeys.forEach(function(k){existing[k]=true;});
+  for(var i=0;i<count;i++){
+    var key;
+    do{
+      key=generateKey(document.getElementById('planSelect').value);
+    }while(existing[key]);
+    existing[key]=true;
+    allKeys.unshift(key);
+  }
+  renderList();
+};
+
+document.getElementById('clearBtn').onclick=function(){
+  allKeys=[];
+  copiedCount=0;
+  document.getElementById('copiedCount').textContent='0';
+  renderList();
+};
+
+document.getElementById('exportBtn').onclick=function(){
+  if(allKeys.length===0){
+    alert('请先生成卡密');
+    return;
+  }
+  var text='PIGCAT 卡密列表\n';
+  text+='生成时间：'+new Date().toLocaleString('zh-CN')+'\n';
+  text+='共 '+allKeys.length+' 个卡密\n';
+  text+='================================\n';
+  allKeys.forEach(function(key,i){
+    text+=(i+1)+'. '+key+'\n';
+  });
+  text+='================================\n';
+  text+='每个卡密可生成对应次数，导出高清图纸每次消耗 1 次，用完后自动失效。';
+  var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  var a=document.createElement('a');
+  a.download='pigcat-keys-'+Date.now()+'.txt';
+  a.href=URL.createObjectURL(blob);
+  a.click();
+};
+
+renderList();
+})();
+</script>
+</body>
+</html>

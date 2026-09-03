@@ -15,7 +15,11 @@
  */
 
 // 加载 .env 环境变量（开发/自部署用；部署平台可直接配置同名环境变量）
-require('dotenv').config();
+// 用 try/catch 包裹：即使部署时未执行 npm install 导致 dotenv 缺失，服务也能正常启动，
+// 此时回退到环境变量或代码默认值，避免"服务起不来 → 前端误报密码错误"。
+try { require('dotenv').config(); } catch (e) {
+  console.warn('[ENV] 未加载 .env（dotenv 缺失或无 .env 文件），将使用环境变量或代码默认值');
+}
 
 const express = require('express');
 const path = require('path');
@@ -915,10 +919,20 @@ app.post('/api/cartoonize', async (req, res) => {
 
 // 健康检查
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     aiConfigured: !!(AI_API_CONFIG.baseUrl && AI_API_CONFIG.apiKey),
     model: AI_API_CONFIG.model
+  });
+});
+
+// 诊断：无需登录，仅返回管理员密码的来源与长度（不输出明文），
+// 用于排查"输入密码提示错误"时确认服务器当前实际生效的是哪个密码。
+app.get('/api/debug/admin-pwd-info', (req, res) => {
+  res.json({
+    source: process.env.ADMIN_PASSWORD ? '环境变量/.env' : '代码默认',
+    length: ADMIN_PASSWORD.length,
+    hint: 'length=9 即当前密码是 PIGCAT110（可登录）；length!=9 表示生效的是其他密码，请检查 .env 或部署平台的 ADMIN_PASSWORD 环境变量'
   });
 });
 

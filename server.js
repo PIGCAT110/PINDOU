@@ -29,6 +29,9 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 部署在 Nginx 反向代理之后时，识别真实客户端协议/IP（HTTPS 重定向、日志等需要）
+app.set('trust proxy', 1);
+
 // 中间件
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));

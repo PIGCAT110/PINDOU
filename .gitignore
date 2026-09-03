@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 .code-mode-devkit.js
 .code-mode-manifest.json
+# 环境变量含敏感密钥，严禁提交
+.env
+.env.*

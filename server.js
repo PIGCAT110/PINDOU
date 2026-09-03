@@ -14,6 +14,9 @@
  * 然后访问 http://localhost:3000
  */
 
+// 加载 .env 环境变量（开发/自部署用；部署平台可直接配置同名环境变量）
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');

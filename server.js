@@ -50,7 +50,7 @@ function saveJson(filename, data) {
 const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const KEY_PLAN_CREDITS = { A: 1, B: 3, C: 5, D: 10 };
 const SKU_TO_PLAN = { '1': 'A', '3': 'B', '5': 'C', '10': 'D' };
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'pigcat_admin_2024';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'PIGCAT110';
 
 function generateServerKey(plan) {
   function randomChar() { return KEY_CHARS[Math.floor(Math.random() * KEY_CHARS.length)]; }

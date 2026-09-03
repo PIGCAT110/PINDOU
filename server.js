@@ -16,6 +16,8 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +25,436 @@ const PORT = process.env.PORT || 3000;
 // 中间件
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
+
+// ============================================================
+// 数据存储管理（JSON文件持久化）
+// ============================================================
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+function loadJson(filename) {
+  const filepath = path.join(DATA_DIR, filename);
+  if (!fs.existsSync(filepath)) return [];
+  try { return JSON.parse(fs.readFileSync(filepath, 'utf-8')); }
+  catch (e) { console.error('[DATA] 读取失败:', filename, e.message); return []; }
+}
+
+function saveJson(filename, data) {
+  const filepath = path.join(DATA_DIR, filename);
+  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// ============================================================
+// 卡密生成与验证（服务端，与前端算法一致）
+// ============================================================
+const KEY_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const KEY_PLAN_CREDITS = { A: 1, B: 3, C: 5, D: 10 };
+const SKU_TO_PLAN = { '1': 'A', '3': 'B', '5': 'C', '10': 'D' };
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'pigcat_admin_2024';
+
+function generateServerKey(plan) {
+  function randomChar() { return KEY_CHARS[Math.floor(Math.random() * KEY_CHARS.length)]; }
+  function calcChecksum(chars11) {
+    let sum = 0;
+    for (let i = 0; i < chars11.length; i++) sum += KEY_CHARS.indexOf(chars11[i]);
+    return KEY_CHARS[sum % KEY_CHARS.length];
+  }
+  let chars11 = plan;
+  for (let i = 1; i < 11; i++) chars11 += randomChar();
+  const all12 = chars11 + calcChecksum(chars11);
+  return 'PC-' + all12.substring(0, 4) + '-' + all12.substring(4, 8) + '-' + all12.substring(8, 12);
+}
+
+function validateServerKey(key) {
+  if (key.length !== 17) return false;
+  if (key.substring(0, 3) !== 'PC-') return false;
+  if (key.charAt(7) !== '-' || key.charAt(12) !== '-') return false;
+  const chars = key.substring(3, 7) + key.substring(8, 12) + key.substring(13, 17);
+  for (let i = 0; i < 12; i++) if (KEY_CHARS.indexOf(chars[i]) < 0) return false;
+  const data11 = chars.substring(0, 11);
+  let sum = 0;
+  for (let i = 0; i < 11; i++) sum += KEY_CHARS.indexOf(data11[i]);
+  if (chars.charAt(11) !== KEY_CHARS[sum % KEY_CHARS.length]) return false;
+  return !!KEY_PLAN_CREDITS[chars.charAt(0)];
+}
+
+function getKeyCredits(key) {
+  const chars = key.substring(3, 7) + key.substring(8, 12) + key.substring(13, 17);
+  return KEY_PLAN_CREDITS[chars.charAt(0)] || 0;
+}
+
+// 生成链接令牌（12位hex，用于直通链接）
+function generateLinkToken() {
+  return crypto.randomBytes(6).toString('hex');
+}
+
+// ============================================================
+// 用户认证系统
+// ============================================================
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password + 'pigcat_salt_2024').digest('hex');
+}
+
+function generateToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+// 注册
+app.post('/api/user/register', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password || password.length < 6) {
+    return res.status(400).json({ error: '邮箱和密码必填，密码至少6位' });
+  }
+  const users = loadJson('users.json');
+  if (users.find(u => u.email === email.toLowerCase())) {
+    return res.status(409).json({ error: '该邮箱已注册' });
+  }
+  const user = {
+    id: 'u_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+    email: email.toLowerCase(),
+    passwordHash: hashPassword(password),
+    token: generateToken(),
+    createdAt: Date.now()
+  };
+  users.push(user);
+  saveJson('users.json', users);
+  console.log(`[USER] 新用户注册: ${user.email}`);
+  res.json({ token: user.token, userId: user.id, email: user.email });
+});
+
+// 登录
+app.post('/api/user/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: '邮箱和密码必填' });
+  const users = loadJson('users.json');
+  const user = users.find(u => u.email === email.toLowerCase());
+  if (!user || user.passwordHash !== hashPassword(password)) {
+    return res.status(401).json({ error: '邮箱或密码错误' });
+  }
+  user.token = generateToken();
+  saveJson('users.json', users);
+  console.log(`[USER] 用户登录: ${user.email}`);
+  res.json({ token: user.token, userId: user.id, email: user.email });
+});
+
+// 获取用户信息
+app.get('/api/user/profile', (req, res) => {
+  const token = req.query.token || req.headers['x-user-token'];
+  if (!token) return res.status(401).json({ error: '未登录' });
+  const users = loadJson('users.json');
+  const user = users.find(u => u.token === token);
+  if (!user) return res.status(401).json({ error: '登录已过期' });
+  res.json({ userId: user.id, email: user.email, createdAt: user.createdAt });
+});
+
+// ============================================================
+// 生成历史记录
+// ============================================================
+app.post('/api/history/save', (req, res) => {
+  const token = req.headers['x-user-token'];
+  if (!token) return res.status(401).json({ error: '未登录' });
+  const users = loadJson('users.json');
+  const user = users.find(u => u.token === token);
+  if (!user) return res.status(401).json({ error: '登录已过期' });
+
+  const { thumb, prompt, brandName, gridSize, colorCount } = req.body;
+  const records = loadJson('history.json');
+  const record = {
+    id: 'h_' + Date.now() + '_' + crypto.randomBytes(2).toString('hex'),
+    userId: user.id,
+    thumb: (thumb || '').substring(0, 50000),
+    prompt: (prompt || '').substring(0, 200),
+    brandName: brandName || '',
+    gridSize: gridSize || '',
+    colorCount: colorCount || 0,
+    createdAt: Date.now()
+  };
+  records.unshift(record);
+  if (records.length > 2000) records.length = 2000;
+  saveJson('history.json', records);
+  res.json({ id: record.id });
+});
+
+app.get('/api/history/list', (req, res) => {
+  const token = req.query.token || req.headers['x-user-token'];
+  if (!token) return res.status(401).json({ error: '未登录' });
+  const users = loadJson('users.json');
+  const user = users.find(u => u.token === token);
+  if (!user) return res.status(401).json({ error: '登录已过期' });
+  const records = loadJson('history.json').filter(r => r.userId === user.id);
+  res.json({ records });
+});
+
+app.delete('/api/history/:id', (req, res) => {
+  const token = req.headers['x-user-token'];
+  if (!token) return res.status(401).json({ error: '未登录' });
+  const users = loadJson('users.json');
+  const user = users.find(u => u.token === token);
+  if (!user) return res.status(401).json({ error: '登录已过期' });
+  let records = loadJson('history.json');
+  const before = records.length;
+  records = records.filter(r => !(r.id === req.params.id && r.userId === user.id));
+  saveJson('history.json', records);
+  res.json({ ok: true, deleted: before - records.length });
+});
+
+// ============================================================
+// 管理员认证
+// ============================================================
+let adminToken = null;
+
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: '管理员密码错误' });
+  }
+  adminToken = generateToken();
+  res.json({ token: adminToken });
+});
+
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (!adminToken || token !== adminToken) {
+    return res.status(401).json({ error: '管理员未登录' });
+  }
+  next();
+}
+
+// ============================================================
+// 订单管理 + 卡密自动生成
+// ============================================================
+// 订单数据结构: { orderNo, sku, credits, cardKey, status: 'pending'|'redeemed', createdAt, redeemedAt }
+
+// 批量导入订单（自动生成卡密）
+app.post('/api/admin/orders/import', adminAuth, (req, res) => {
+  const { orders, sku } = req.body;
+  // orders: 字符串（每行一个订单号）或数组
+  // sku: '1'|'3'|'5'|'10'
+  if (!orders) return res.status(400).json({ error: '缺少订单数据' });
+  
+  const plan = SKU_TO_PLAN[sku];
+  if (!plan) return res.status(400).json({ error: '无效的SKU，需为 1/3/5/10' });
+
+  let orderList = [];
+  if (typeof orders === 'string') {
+    orderList = orders.split(/[\n,，\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+  } else if (Array.isArray(orders)) {
+    orderList = orders.map(s => String(s).trim()).filter(s => s.length > 0);
+  }
+
+  if (orderList.length === 0) return res.status(400).json({ error: '没有有效的订单号' });
+
+  const existing = loadJson('orders.json');
+  const existingNos = new Set(existing.map(o => o.orderNo));
+  const newOrders = [];
+  const skipped = [];
+
+  for (const orderNo of orderList) {
+    if (existingNos.has(orderNo)) {
+      skipped.push(orderNo);
+      continue;
+    }
+    const cardKey = generateServerKey(plan);
+    const linkToken = generateLinkToken();
+    const order = {
+      orderNo,
+      sku,
+      credits: KEY_PLAN_CREDITS[plan],
+      remaining: KEY_PLAN_CREDITS[plan],
+      cardKey,
+      linkToken,
+      status: 'pending',
+      createdAt: Date.now(),
+      redeemedAt: null
+    };
+    existing.push(order);
+    newOrders.push(order);
+  }
+
+  saveJson('orders.json', existing);
+  console.log(`[ADMIN] 导入订单: ${newOrders.length}个新, ${skipped.length}个重复`);
+  res.json({
+    imported: newOrders.length,
+    skipped: skipped.length,
+    skippedOrders: skipped,
+    orders: newOrders
+  });
+});
+
+// 查询所有订单
+app.get('/api/admin/orders', adminAuth, (req, res) => {
+  const orders = loadJson('orders.json');
+  const { status, page } = req.query;
+  let filtered = orders;
+  if (status === 'pending') filtered = orders.filter(o => o.status === 'pending');
+  if (status === 'redeemed') filtered = orders.filter(o => o.status === 'redeemed');
+  if (status === 'exhausted') filtered = orders.filter(o => (o.remaining !== undefined ? o.remaining : o.credits) === 0);
+  if (status === 'links') filtered = orders.filter(o => o.orderNo && o.orderNo.startsWith('POOL_'));
+  
+  const pageNum = parseInt(page) || 1;
+  const pageSize = 50;
+  const start = (pageNum - 1) * pageSize;
+  const pageData = filtered.slice(start, start + pageSize);
+  
+  res.json({
+    orders: pageData,
+    total: filtered.length,
+    page: pageNum,
+    totalPages: Math.ceil(filtered.length / pageSize)
+  });
+});
+
+// 管理员统计
+app.get('/api/admin/stats', adminAuth, (req, res) => {
+  const orders = loadJson('orders.json');
+  const users = loadJson('users.json');
+  const history = loadJson('history.json');
+  const getRem = (o) => o.remaining !== undefined ? o.remaining : o.credits;
+
+  res.json({
+    totalOrders: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    redeemed: orders.filter(o => o.status === 'redeemed').length,
+    exhausted: orders.filter(o => getRem(o) === 0).length,
+    active: orders.filter(o => { var r = getRem(o); return r > 0 && r < o.credits; }).length,
+    totalUsers: users.length,
+    totalHistory: history.length,
+    skuBreakdown: {
+      '1': orders.filter(o => o.sku === '1').length,
+      '3': orders.filter(o => o.sku === '3').length,
+      '5': orders.filter(o => o.sku === '5').length,
+      '10': orders.filter(o => o.sku === '10').length,
+    }
+  });
+});
+
+// 删除订单
+app.delete('/api/admin/orders/:orderNo', adminAuth, (req, res) => {
+  let orders = loadJson('orders.json');
+  const before = orders.length;
+  orders = orders.filter(o => o.orderNo !== req.params.orderNo);
+  saveJson('orders.json', orders);
+  res.json({ ok: true, deleted: before - orders.length });
+});
+
+// ============================================================
+// 顾客自助卡密兑换
+// ============================================================
+app.post('/api/redeem', (req, res) => {
+  const { orderNo } = req.body;
+  if (!orderNo || !orderNo.trim()) {
+    return res.status(400).json({ error: '请输入订单号' });
+  }
+  const orders = loadJson('orders.json');
+  const order = orders.find(o => o.orderNo === orderNo.trim());
+  if (!order) {
+    return res.status(404).json({ error: '订单号不存在，请检查输入或联系客服' });
+  }
+  
+  if (order.status === 'redeemed') {
+    // 已兑换过，返回同一个卡密（允许顾客再次查看）
+    return res.json({
+      cardKey: order.cardKey,
+      linkToken: order.linkToken || '',
+      credits: order.credits,
+      alreadyRedeemed: true,
+      redeemedAt: order.redeemedAt
+    });
+  }
+  
+  // 首次兑换
+  order.status = 'redeemed';
+  order.redeemedAt = Date.now();
+  saveJson('orders.json', orders);
+  console.log(`[REDEEM] 订单 ${order.orderNo} 兑换卡密: ${order.cardKey}`);
+  
+  res.json({
+    cardKey: order.cardKey,
+    linkToken: order.linkToken || '',
+    credits: order.credits,
+    alreadyRedeemed: false
+  });
+});
+
+// 兑换页验证卡密有效性（供前端调用）
+app.post('/api/verify-key', (req, res) => {
+  const { key } = req.body;
+  if (!key) return res.json({ valid: false });
+  const upper = key.trim().toUpperCase();
+  res.json({ valid: validateServerKey(upper), credits: getKeyCredits(upper) });
+});
+
+// ============================================================
+// 直通链接系统（令牌验证 / 消耗 / 批量生成）
+// ============================================================
+// 链接格式: https://域名/?token=xxxxxxxxxxxx
+// 顾客点击链接即可直接使用，无需输入卡密
+
+// 验证链接令牌
+app.post('/api/link/verify', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.json({ valid: false });
+  const orders = loadJson('orders.json');
+  const order = orders.find(o => o.linkToken === token.trim());
+  if (!order) return res.json({ valid: false });
+  const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+  res.json({
+    valid: true,
+    remaining: remaining,
+    credits: order.credits,
+    orderNo: order.orderNo
+  });
+});
+
+// 消耗一次链接令牌
+app.post('/api/link/consume', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: '缺少token' });
+  const orders = loadJson('orders.json');
+  const order = orders.find(o => o.linkToken === token.trim());
+  if (!order) return res.status(404).json({ error: '链接无效' });
+  
+  const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+  if (remaining <= 0) return res.status(403).json({ error: '使用次数已用完', remaining: 0 });
+  
+  order.remaining = remaining - 1;
+  saveJson('orders.json', orders);
+  console.log(`[LINK] 消耗1次: token=${token.substring(0, 8)}... 剩余${order.remaining}/${order.credits}`);
+  res.json({ ok: true, remaining: order.remaining, credits: order.credits });
+});
+
+// 批量预生成直通链接（无需订单号，用于闲鱼/小红书自动发货）
+app.post('/api/admin/links/batch', adminAuth, (req, res) => {
+  const { sku, count } = req.body;
+  const plan = SKU_TO_PLAN[sku];
+  if (!plan) return res.status(400).json({ error: '无效的SKU，需为 1/3/5/10' });
+  
+  const num = Math.min(parseInt(count) || 1, 100);
+  const orders = loadJson('orders.json');
+  const newLinks = [];
+  
+  for (let i = 0; i < num; i++) {
+    const linkToken = generateLinkToken();
+    const orderNo = 'POOL_' + Date.now() + '_' + crypto.randomBytes(2).toString('hex') + '_' + i;
+    const order = {
+      orderNo,
+      sku,
+      credits: KEY_PLAN_CREDITS[plan],
+      remaining: KEY_PLAN_CREDITS[plan],
+      cardKey: generateServerKey(plan),
+      linkToken,
+      status: 'pending',
+      createdAt: Date.now(),
+      redeemedAt: null
+    };
+    orders.push(order);
+    newLinks.push(order);
+  }
+  
+  saveJson('orders.json', orders);
+  console.log(`[ADMIN] 批量预生成${num}个直通链接 (SKU=${sku}次)`);
+  res.json({ count: newLinks.length, links: newLinks });
+});
 
 // 根路径重定向到主页面
 app.get('/', (req, res) => {

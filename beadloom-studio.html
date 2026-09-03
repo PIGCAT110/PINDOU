@@ -771,10 +771,18 @@ a{color:inherit}
       <button id="navMyPatterns"><span class="ico">&#x1F4DA;</span>我的图纸</button>
     </nav>
     <div class="rail-bottom">
+      <button id="navAccount" style="background:var(--surface-2);border:2px solid var(--line-soft);border-radius:var(--radius-btn);padding:10px 14px;width:100%;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;margin-bottom:10px;box-shadow:var(--shadow-sm);transition:all .15s">
+        <span id="accountBtnText">&#x1F464; 登录 / 注册</span>
+      </button>
       <div class="usage">
         <div class="usage-label"><span>卡密状态</span><span id="usageCount">0 次可用</span></div>
         <div class="progress"><i id="usageBar" style="width:0%"></i></div>
         <small id="usageHint">输入卡密后可按套餐生成</small>
+      </div>
+      <!-- 页面导航 -->
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <a href="/redeem.html" style="flex:1;text-align:center;background:var(--surface-2);border:2px solid var(--line-soft);border-radius:var(--radius-btn);padding:8px 6px;font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--ink-soft);text-decoration:none;box-shadow:var(--shadow-sm)">&#x1F511; 兑换</a>
+        <a href="/admin.html" style="flex:1;text-align:center;background:var(--surface-2);border:2px solid var(--line-soft);border-radius:var(--radius-btn);padding:8px 6px;font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--ink-soft);text-decoration:none;box-shadow:var(--shadow-sm)">&#x1F6E0; 管理</a>
       </div>
     </div>
   </aside>
@@ -965,6 +973,31 @@ a{color:inherit}
     </div>
     <button class="pay" id="payBtn" style="width:100%;background:var(--primary);color:#fff;border:none;padding:14px;font-family:var(--font-display);font-size:15px;box-shadow:var(--shadow);border-radius:var(--radius-btn)">验证卡密</button>
     <p class="fine">卡密由管理员通过卡密生成器生成，支持 1、3、5、10 次用量。</p>
+  </div>
+</div>
+
+<!-- 登录/注册弹窗 -->
+<div class="modal" id="authModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow" id="authEyebrow">PIGCAT 账号</div>
+        <h2 id="authTitle">登录 / 注册</h2>
+      </div>
+      <button class="close" id="closeAuthModal">&#x00D7;</button>
+    </div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 18px;line-height:1.6">注册账号后，您的生成记录将自动保存到云端，换设备登录也能查看历史图纸。</p>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">邮箱</label>
+      <input type="email" id="authEmail" placeholder="your@email.com" style="width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-body);font-size:14px;background:var(--surface-2);box-shadow:var(--shadow-sm)">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">密码（至少6位）</label>
+      <input type="password" id="authPassword" placeholder="设置密码" style="width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-body);font-size:14px;background:var(--surface-2);box-shadow:var(--shadow-sm)">
+    </div>
+    <div id="authError" style="color:var(--secondary);font-size:12px;margin-bottom:12px;display:none"></div>
+    <button class="pay" id="authSubmitBtn" style="width:100%;background:var(--primary);color:#fff;border:none;padding:14px;font-family:var(--font-display);font-size:15px;box-shadow:var(--shadow);border-radius:var(--radius-btn);cursor:pointer">&#x1F511; 登录 / 注册</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px">输入邮箱和密码，系统自动判断登录或注册</p>
   </div>
 </div>
 
@@ -1951,6 +1984,8 @@ var uploadHistory=[];   /* 最近图纸：存储上传的原图缩略图 */
 var patternHistory=[];  /* 我的图纸：存储生成的拼豆图纸结果 */
 var usageUsed=0;
 var creditsRemaining=0; /* 当前卡密剩余可生成次数 */
+var linkToken=''; /* 直通链接令牌（URL ?token=xxx 检测） */
+var linkMode=false; /* 是否处于链接直通模式 */
 
 /* 卡密系统：算法验证（与卡密生成器共享校验逻辑） */
 var KEY_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2098,6 +2133,10 @@ function saveToHistory(grid,palette,n,counts,brandName,style){
   };
   patternHistory.unshift(record);
   if(patternHistory.length>50)patternHistory=patternHistory.slice(0,50);
+  /* 已登录时同步保存到服务器 */
+  if(typeof userToken!=='undefined'&&userToken){
+    saveToServerHistory(thumbData,'',brandName,n+'\u00d7'+n,palette.length);
+  }
 }
 
 function renderRecentProjects(){
@@ -2469,19 +2508,46 @@ var creditDeductedForImage=false; /* 当前图片是否已扣除卡密次数（�
 function generate(skipCreditCheck){
   if(!image)return;
   
-  /* 检查卡密剩余次数（参数变化时跳过，仅在首次生图/上传新图时检查） */
+  /* 检查剩余次数（参数变化时跳过，仅在首次生图/上传新图时检查） */
   if(!skipCreditCheck && creditsRemaining<=0){
-    toast('卡密次数已用完，请输入新卡密');
-    modal.classList.add('open');
+    if(linkMode){
+      toast('使用次数已用完，请购买新链接');
+    }else{
+      toast('卡密次数已用完，请输入新卡密');
+      modal.classList.add('open');
+    }
     return;
   }
   
-  /* 生成时扣除卡密次数（每张图片只扣一次，参数变化不重复扣费） */
-  if(!skipCreditCheck && !creditDeductedForImage && currentKey){
-    creditsRemaining=consumeKeyCredit(currentKey);
-    creditDeductedForImage=true;
-    updateUsage();
-    console.log('[PIGCAT] 生成时扣除1次卡密，剩余'+creditsRemaining+'次');
+  /* 生成时扣除次数（每张图片只扣一次，参数变化不重复扣费） */
+  if(!skipCreditCheck && !creditDeductedForImage){
+    if(linkMode && linkToken){
+      /* 链接模式：服务端消耗 */
+      fetch('/api/link/consume',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({token:linkToken})
+      }).then(function(r){return r.json()}).then(function(data){
+        if(data.ok){
+          creditsRemaining=data.remaining;
+          creditDeductedForImage=true;
+          updateUsage();
+          console.log('[PIGCAT] 链接模式扣除1次，剩余'+creditsRemaining+'次');
+        }else if(data.remaining===0){
+          creditsRemaining=0;
+          updateUsage();
+          toast('使用次数已用完');
+        }
+      }).catch(function(err){
+        console.warn('[PIGCAT] 链接消耗失败:',err);
+      });
+    }else if(currentKey){
+      /* 卡密模式：本地消耗 */
+      creditsRemaining=consumeKeyCredit(currentKey);
+      creditDeductedForImage=true;
+      updateUsage();
+      console.log('[PIGCAT] 生成时扣除1次卡密，剩余'+creditsRemaining+'次');
+    }
   }
   
   statusEl.textContent='正在生成...';
@@ -2742,8 +2808,8 @@ function generateStyle(key,idx,n,maxColors,brand,brandName,paletteRgb,sourceImag
 function loadFile(file){
   if(!file)return;
   if(file.size>15*1024*1024){toast('上传图片要在15MB以内哦~');input.value='';return;}
-  // 检查卡密
-  if(creditsRemaining<=0){
+  // 检查卡密（链接模式下跳过）
+  if(!linkMode && creditsRemaining<=0){
     toast('请先输入卡密');
     modal.classList.add('open');
     input.value='';
@@ -2917,6 +2983,172 @@ document.getElementById('payBtn').onclick=function(){
 cardKeyInput.addEventListener('keydown',function(e){
   if(e.key==='Enter'){document.getElementById('payBtn').click();}
 });
+
+/* ============================================================
+   用户认证系统（登录/注册/历史记录云端同步）
+   ============================================================ */
+var userToken=localStorage.getItem('pigcat_token')||'';
+var userEmail='';
+var authModal=document.getElementById('authModal');
+var authEmailInput=document.getElementById('authEmail');
+var authPasswordInput=document.getElementById('authPassword');
+var authError=document.getElementById('authError');
+var authSubmitBtn=document.getElementById('authSubmitBtn');
+var accountBtnText=document.getElementById('accountBtnText');
+
+/* 账号按钮点击 */
+document.getElementById('navAccount').onclick=function(){
+  if(userToken){
+    if(confirm('当前登录: '+userEmail+'\n点击确定退出登录')){
+      userToken='';userEmail='';
+      localStorage.removeItem('pigcat_token');
+      accountBtnText.textContent='\u{1F464} 登录 / 注册';
+      toast('已退出登录');
+    }
+    return;
+  }
+  authError.style.display='none';
+  authModal.classList.add('open');
+  setTimeout(function(){authEmailInput.focus();},100);
+};
+document.getElementById('closeAuthModal').onclick=function(){
+  authModal.classList.remove('open');
+};
+
+/* 登录/注册提交 */
+authSubmitBtn.onclick=function(){
+  var email=authEmailInput.value.trim();
+  var password=authPasswordInput.value;
+  authError.style.display='none';
+  if(!email||!password){showAuthError('请输入邮箱和密码');return;}
+  if(password.length<6){showAuthError('密码至少6位');return;}
+  
+  authSubmitBtn.disabled=true;
+  authSubmitBtn.textContent='处理中...';
+  
+  /* 先尝试登录，失败则尝试注册 */
+  fetch('/api/user/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:email,password:password})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.token){
+      onLoginSuccess(data);
+    }else{
+      /* 登录失败，尝试注册 */
+      return fetch('/api/user/register',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:email,password:password})
+      }).then(function(r){return r.json()}).then(function(regData){
+        if(regData.token){
+          onLoginSuccess(regData);
+        }else{
+          showAuthError(regData.error||'操作失败');
+        }
+      });
+    }
+  }).catch(function(){
+    showAuthError('网络错误，请重试');
+  }).finally(function(){
+    authSubmitBtn.disabled=false;
+    authSubmitBtn.textContent='\u{1F511} 登录 / 注册';
+  });
+};
+
+function showAuthError(msg){
+  authError.textContent=msg;
+  authError.style.display='block';
+}
+
+function onLoginSuccess(data){
+  userToken=data.token;
+  userEmail=data.email;
+  localStorage.setItem('pigcat_token',userToken);
+  authModal.classList.remove('open');
+  authPasswordInput.value='';
+  accountBtnText.textContent='\u{1F464} '+userEmail;
+  toast('登录成功！历史记录将自动保存');
+  loadServerHistory();
+}
+
+authPasswordInput.addEventListener('keydown',function(e){
+  if(e.key==='Enter')authSubmitBtn.click();
+});
+authEmailInput.addEventListener('keydown',function(e){
+  if(e.key==='Enter')authPasswordInput.focus();
+});
+
+/* 自动登录（页面加载时） */
+function autoLogin(){
+  if(!userToken)return;
+  fetch('/api/user/profile',{
+    headers:{'x-user-token':userToken}
+  }).then(function(r){
+    if(!r.ok)throw new Error('expired');
+    return r.json();
+  }).then(function(data){
+    userEmail=data.email;
+    accountBtnText.textContent='\u{1F464} '+userEmail;
+    loadServerHistory();
+  }).catch(function(){
+    userToken='';
+    localStorage.removeItem('pigcat_token');
+  });
+}
+
+/* 从服务器加载历史记录 */
+function loadServerHistory(){
+  if(!userToken)return;
+  fetch('/api/history/list',{
+    headers:{'x-user-token':userToken}
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.records&&data.records.length>0){
+      data.records.forEach(function(rec){
+        if(!patternHistory.find(function(p){return p.id==rec.id;})){
+          var d=new Date(rec.createdAt);
+          patternHistory.push({
+            id:rec.id,
+            thumb:rec.thumb,
+            grid:null,
+            palette:null,
+            n:0,
+            counts:{},
+            brandName:rec.brandName,
+            style:'',
+            totalBeads:0,
+            colorCount:rec.colorCount,
+            timeStr:d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'),
+            dateStr:(d.getMonth()+1)+'.'+d.getDate(),
+            timestamp:rec.createdAt,
+            fromServer:true
+          });
+        }
+      });
+      renderAllPatterns();
+    }
+  }).catch(function(err){
+    console.warn('[PIGCAT] 加载服务器历史失败:',err);
+  });
+}
+
+/* 保存到服务器 */
+function saveToServerHistory(thumbData,prompt,brandName,gridSize,colorCount){
+  if(!userToken)return;
+  fetch('/api/history/save',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-user-token':userToken},
+    body:JSON.stringify({
+      thumb:thumbData,
+      prompt:prompt||'',
+      brandName:brandName||'',
+      gridSize:gridSize||'',
+      colorCount:colorCount||0
+    })
+  }).catch(function(err){
+    console.warn('[PIGCAT] 保存到服务器失败:',err);
+  });
+}
 
 // 导航切换
 var navNew=document.getElementById('navNew');
@@ -3227,9 +3459,56 @@ function optimizePrompt(userPrompt){
   });
 }
 
-/* 页面加载时自动弹出卡密验证 */
+/* ============================================================
+   直通链接检测：URL ?token=xxx 自动验证并激活
+   ============================================================ */
+function detectLinkToken(){
+  var params=new URLSearchParams(window.location.search);
+  var token=params.get('token');
+  if(!token)return false;
+  
+  console.log('[PIGCAT] 检测到链接令牌:',token.substring(0,8)+'...');
+  fetch('/api/link/verify',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token:token})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.valid){
+      linkToken=token;
+      linkMode=true;
+      creditsRemaining=data.remaining;
+      currentKey='LINK_'+token.substring(0,8);
+      updateUsage();
+      console.log('[PIGCAT] 链接验证成功，剩余'+data.remaining+'/'+data.credits+'次');
+      if(data.remaining>0){
+        toast('链接已激活！剩余 '+data.remaining+' 次可用');
+      }else{
+        toast('该链接使用次数已用完');
+      }
+      /* 更新侧边栏显示 */
+      var usageEl=document.querySelector('.usage');
+      if(usageEl){
+        usageEl.innerHTML='<div style="font-size:11px;color:var(--mint);font-weight:700;margin-bottom:4px">&#x1F517; 链接已激活</div>'+
+          '<div class="usage-bar"><div class="usage-fill" id="usageBar" style="width:'+(data.remaining>0?100:0)+'%;transition:width .3s"></div></div>'+
+          '<div class="usage-info"><span id="usageCount">'+data.remaining+' 次可用</span><span class="usage-num" id="creditsCount">'+data.remaining+'</span></div>';
+      }
+    }else{
+      console.warn('[PIGCAT] 链接令牌无效');
+      toast('链接无效或已失效，请输入卡密');
+      modal.classList.add('open');
+      setTimeout(function(){cardKeyInput.focus();},200);
+    }
+  }).catch(function(err){
+    console.warn('[PIGCAT] 链接验证失败:',err);
+    modal.classList.add('open');
+    setTimeout(function(){cardKeyInput.focus();},200);
+  });
+  return true;
+}
+
+/* 页面加载时检测链接令牌，无令牌则弹出卡密验证 */
 setTimeout(function(){
-  if(creditsRemaining<=0){
+  if(!detectLinkToken() && creditsRemaining<=0){
     modal.classList.add('open');
     setTimeout(function(){cardKeyInput.focus();},200);
   }
@@ -3436,6 +3715,7 @@ var LEAF_COLORS={'G':'#7FD8A0','d':'#4CAF50'};
 // 初始化
 updateUsage();
 renderRecentProjects();
+autoLogin(); /* 自动登录并加载云端历史 */
 
 })();
 </script>

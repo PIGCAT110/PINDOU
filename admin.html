@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIGCAT 管理后台 · 订单与卡密管理</title>
+<style>
+@font-face{font-family:'Pixel';src:url('./_shared/fonts/PixelifySans-Medium.ttf')}
+:root{
+  --bg:#FFF8EE;--surface:#FFFFFF;--surface-2:#FFF1E0;
+  --primary:#FF8C42;--secondary:#FF6B6B;--accent:#FFD93D;
+  --mint:#7FD8A0;--pink:#FFB6C1;
+  --ink:#5C3317;--ink-soft:#8B5A3C;--muted:#B89A7A;
+  --line:#5C3317;--line-soft:#E8D5BD;
+  --shadow:4px 4px 0 rgba(92,51,23,.15);
+  --shadow-sm:2px 2px 0 rgba(92,51,23,.15);
+  --radius:14px;--radius-sm:10px;--radius-btn:8px;
+  --font-display:'Pixel','Courier New',monospace;
+  --font-body:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(rgba(255,140,66,.10) 1.5px,transparent 1.5px);
+  background-size:28px 28px;
+  color:var(--ink);font-family:var(--font-body);line-height:1.6;
+  min-height:100vh;padding:20px;
+}
+/* 登录页 */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-box{
+  background:var(--surface);border:2.5px solid var(--line);
+  box-shadow:var(--shadow);border-radius:var(--radius);
+  padding:36px;max-width:400px;width:100%;text-align:center;
+}
+.login-box h1{font-family:var(--font-display);font-size:24px;color:var(--primary);margin-bottom:6px}
+.login-box p{font-size:13px;color:var(--ink-soft);margin-bottom:24px}
+.login-box input{
+  width:100%;padding:12px 16px;border:2px solid var(--line);
+  border-radius:var(--radius-btn);font-family:var(--font-body);
+  font-size:14px;background:var(--surface);box-shadow:var(--shadow-sm);
+  margin-bottom:16px;text-align:center;
+}
+.login-box input:focus{outline:none;border-color:var(--primary)}
+/* 主面板 */
+.dashboard{display:none;max-width:960px;margin:0 auto}
+.dashboard.show{display:block}
+.header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:24px;
+}
+.header h1{font-family:var(--font-display);font-size:24px;color:var(--primary)}
+.header .actions{display:flex;gap:10px}
+.btn{
+  background:var(--primary);color:#fff;border:none;
+  padding:8px 16px;font-weight:700;font-family:var(--font-body);
+  font-size:13px;border-radius:var(--radius-btn);box-shadow:2px 2px 0 var(--line);
+  cursor:pointer;transition:transform .06s,box-shadow .06s;
+}
+.btn:hover{background:#FF7A28}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0}
+.btn-ghost{background:var(--surface);color:var(--ink);border:2px solid var(--line)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-mint{background:var(--mint)}
+.btn-mint:hover{background:#6BC88F}
+/* 统计卡片 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{
+  background:var(--surface);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:16px;text-align:center;
+  box-shadow:var(--shadow-sm);
+}
+.stat-card .num{font-family:var(--font-display);font-size:28px;color:var(--primary);font-weight:700}
+.stat-card .label{font-size:11px;color:var(--ink-soft);margin-top:4px}
+.stat-card.mint .num{color:var(--mint)}
+.stat-card.pink .num{color:var(--secondary)}
+.stat-card.accent .num{color:#E6A800}
+/* 导入区域 */
+.import-section{
+  background:var(--surface);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:20px;margin-bottom:24px;
+  box-shadow:var(--shadow-sm);
+}
+.import-section h2{font-size:16px;margin-bottom:14px;color:var(--ink)}
+.import-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.import-row select{
+  padding:10px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);
+  font-family:var(--font-body);font-size:14px;font-weight:700;
+  background:var(--surface);box-shadow:var(--shadow-sm);cursor:pointer;
+}
+.import-row textarea{
+  flex:1;min-width:300px;min-height:100px;padding:12px 14px;
+  border:2px solid var(--line);border-radius:var(--radius-btn);
+  font-family:var(--font-body);font-size:13px;
+  background:var(--surface);box-shadow:var(--shadow-sm);resize:vertical;
+}
+.import-row textarea:focus{outline:none;border-color:var(--primary)}
+.import-hint{font-size:11px;color:var(--muted);margin-top:8px}
+/* 导入结果 */
+.import-result{
+  display:none;margin-top:14px;padding:14px;
+  background:var(--surface-2);border-radius:var(--radius-btn);
+  font-size:13px;
+}
+.import-result.show{display:block}
+.import-result .ok{color:var(--mint);font-weight:700}
+.import-result .skip{color:var(--muted)}
+/* 订单表格 */
+.orders-section{
+  background:var(--surface);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:20px;
+  box-shadow:var(--shadow-sm);
+}
+.orders-section h2{font-size:16px;margin-bottom:14px}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px}
+.filter-bar button{
+  padding:6px 14px;border:2px solid var(--line-soft);border-radius:20px;
+  font-size:12px;font-weight:700;background:var(--surface);cursor:pointer;
+  color:var(--ink-soft);
+}
+.filter-bar button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;padding:10px 12px;border-bottom:2px solid var(--line);
+  font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;
+}
+td{padding:10px 12px;border-bottom:1px solid var(--line-soft)}
+tr:hover{background:var(--surface-2)}
+.badge{
+  display:inline-block;padding:2px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;
+}
+.badge-pending{background:#FFF3D6;color:#8B6914}
+.badge-redeemed{background:#D6F5E0;color:#1A7A3A}
+.key-cell{font-family:var(--font-display);font-weight:700;color:var(--primary);letter-spacing:.03em}
+.copy-link{
+  background:none;border:none;color:var(--primary);cursor:pointer;
+  font-size:11px;text-decoration:underline;
+}
+.empty-row{text-align:center;padding:30px;color:var(--muted)}
+.delete-btn{
+  background:none;border:none;color:var(--secondary);cursor:pointer;
+  font-size:14px;
+}
+.delete-btn:hover{color:#C0392B}
+/* 分页 */
+.pagination{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.pagination button{
+  padding:6px 12px;border:2px solid var(--line-soft);border-radius:var(--radius-btn);
+  font-size:12px;background:var(--surface);cursor:pointer;
+}
+.pagination button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+/* 直通链接批量生成 */
+.link-gen-section{
+  background:var(--surface);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);padding:20px;margin-bottom:24px;
+  box-shadow:var(--shadow-sm);
+}
+.link-gen-section h2{font-size:16px;margin-bottom:14px;color:var(--ink)}
+.link-gen-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.link-gen-row input[type="number"]{
+  width:80px;padding:10px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);
+  font-family:var(--font-body);font-size:14px;font-weight:700;text-align:center;
+  background:var(--surface);box-shadow:var(--shadow-sm);
+}
+.link-result{display:none;margin-top:16px}
+.link-result.show{display:block}
+.link-result-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
+}
+.link-result-header span{font-size:13px;font-weight:700;color:var(--mint)}
+.link-result-list{
+  max-height:320px;overflow-y:auto;
+  background:var(--surface-2);border-radius:var(--radius-btn);padding:8px;
+}
+.link-item{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:6px;margin-bottom:6px;
+}
+.link-item:last-child{margin-bottom:0}
+.link-item .idx{font-size:11px;color:var(--muted);font-weight:700;min-width:24px}
+.link-item .url{
+  flex:1;font-family:var(--font-body);font-size:12px;color:var(--ink-soft);
+  word-break:break-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.link-item .copy-link-btn{
+  background:var(--accent);color:var(--ink);border:1px solid var(--line);
+  padding:4px 10px;font-size:11px;font-weight:700;border-radius:4px;
+  cursor:pointer;white-space:nowrap;transition:background .15s;
+}
+.link-item .copy-link-btn:hover{background:#F5CB2E}
+.link-item .copy-link-btn.copied{background:var(--mint);color:#fff}
+.copy-all-btn{
+  background:var(--mint);color:#fff;border:none;
+  padding:6px 14px;font-size:12px;font-weight:700;border-radius:var(--radius-btn);
+  cursor:pointer;box-shadow:var(--shadow-sm);transition:background .15s;
+}
+.copy-all-btn:hover{background:#6BC88F}
+/* 剩余次数徽章 */
+.usage-badge{
+  display:inline-block;padding:2px 8px;border-radius:12px;
+  font-size:11px;font-weight:700;white-space:nowrap;
+}
+.usage-full{background:#D6F5E0;color:#1A7A3A}
+.usage-partial{background:#FFF3D6;color:#8B6914}
+.usage-empty{background:#FFE5E5;color:#C0392B}
+/* 表格链接单元格 */
+.link-cell{font-family:var(--font-body);font-size:11px;color:var(--ink-soft)}
+.link-cell .copy-link{
+  display:inline-block;margin-top:2px;
+}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <h1>&#x1F512; PIGCAT 管理后台</h1>
+    <p>请输入管理员密码</p>
+    <input type="password" id="adminPwd" placeholder="管理员密码" autocomplete="off">
+    <br>
+    <button class="btn" id="adminLoginBtn" style="width:100%;padding:12px">&#x1F511; 登录</button>
+    <div id="loginError" style="color:var(--secondary);font-size:12px;margin-top:12px;display:none">密码错误</div>
+  </div>
+</div>
+
+<!-- 主面板 -->
+<div class="dashboard" id="dashboard">
+  <div class="header">
+    <h1>&#x1F3A8; PIGCAT 管理后台</h1>
+    <div class="actions">
+      <a href="/" class="btn btn-ghost">&#x1F3E0; 工坊</a>
+      <a href="/redeem.html" class="btn btn-ghost">&#x1F511; 兑换</a>
+      <button class="btn btn-ghost" id="logoutBtn">退出</button>
+    </div>
+  </div>
+
+  <!-- 统计 -->
+  <div class="stats" id="statsGrid">
+    <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">总订单</div></div>
+    <div class="stat-card mint"><div class="num" id="statActive">0</div><div class="label">使用中</div></div>
+    <div class="stat-card accent"><div class="num" id="statPending">0</div><div class="label">待使用</div></div>
+    <div class="stat-card pink"><div class="num" id="statExhausted">0</div><div class="label">已用完</div></div>
+    <div class="stat-card"><div class="num" id="statUsers">0</div><div class="label">注册用户</div></div>
+  </div>
+
+  <!-- 导入订单 -->
+  <div class="import-section">
+    <h2>&#x1F4E5; 批量导入订单（自动生成卡密）</h2>
+    <div class="import-row">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">SKU 选择</label>
+        <select id="skuSelect">
+          <option value="1">1 次卡密</option>
+          <option value="3">3 次卡密</option>
+          <option value="5">5 次卡密</option>
+          <option value="10">10 次卡密</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:300px">
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">订单号（每行一个，或用逗号/空格分隔）</label>
+        <textarea id="orderInput" placeholder="例如：&#10;202408121234&#10;202408121235&#10;202408121236"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-mint" id="importBtn">&#x2728; 导入并生成卡密</button>
+    <div class="import-hint">导入后系统自动为每个订单生成对应次数的卡密。顾客在兑换页输入订单号即可领取。重复导入的订单号会自动跳过。</div>
+    <div class="import-result" id="importResult"></div>
+  </div>
+
+  <!-- 直通链接批量生成 -->
+  <div class="link-gen-section">
+    <h2>&#x1F517; 批量生成直通链接（小红书/闲鱼自动发货）</h2>
+    <div class="link-gen-row">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">SKU 选择</label>
+        <select id="linkSkuSelect">
+          <option value="1">1 次链接</option>
+          <option value="3" selected>3 次链接</option>
+          <option value="5">5 次链接</option>
+          <option value="10">10 次链接</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">生成数量</label>
+        <input type="number" id="linkCount" value="5" min="1" max="100">
+      </div>
+      <button class="btn btn-mint" id="genLinksBtn">&#x26A1; 生成链接</button>
+    </div>
+    <div class="import-hint">生成后可直接复制链接发给买家。买家点击链接即可直接使用对应次数，无需输入卡密。适合小红书/闲鱼自动发货场景。</div>
+    <div class="link-result" id="linkResult"></div>
+  </div>
+
+  <!-- 订单列表 -->
+  <div class="orders-section">
+    <h2>&#x1F4CB; 订单列表</h2>
+    <div class="filter-bar">
+      <button class="active" data-filter="all">全部</button>
+      <button data-filter="pending">待使用</button>
+      <button data-filter="links">直通链接</button>
+      <button data-filter="exhausted">已用完</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>订单号</th>
+          <th>SKU</th>
+          <th>卡密</th>
+          <th>直通链接</th>
+          <th>剩余次数</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="orderTableBody">
+        <tr><td colspan="6" class="empty-row">暂无订单</td></tr>
+      </tbody>
+    </table>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var adminToken=localStorage.getItem('pigcat_admin_token')||'';
+var currentFilter='all';
+var currentPage=1;
+
+/* 登录 */
+function login(pwd){
+  fetch('/api/admin/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({password:pwd})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.token){
+      adminToken=data.token;
+      localStorage.setItem('pigcat_admin_token',adminToken);
+      showDashboard();
+    }else{
+      document.getElementById('loginError').style.display='block';
+    }
+  }).catch(function(){
+    document.getElementById('loginError').style.display='block';
+  });
+}
+
+document.getElementById('adminLoginBtn').onclick=function(){
+  var pwd=document.getElementById('adminPwd').value;
+  if(pwd)login(pwd);
+};
+document.getElementById('adminPwd').addEventListener('keydown',function(e){
+  if(e.key==='Enter')document.getElementById('adminLoginBtn').click();
+});
+
+function showDashboard(){
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('dashboard').classList.add('show');
+  loadStats();
+  loadOrders();
+}
+
+/* 退出 */
+document.getElementById('logoutBtn').onclick=function(){
+  adminToken='';
+  localStorage.removeItem('pigcat_admin_token');
+  location.reload();
+};
+
+/* 统计 */
+function loadStats(){
+  fetch('/api/admin/stats',{
+    headers:{'x-admin-token':adminToken}
+  }).then(function(r){return r.json()}).then(function(d){
+    document.getElementById('statTotal').textContent=d.totalOrders;
+    document.getElementById('statActive').textContent=d.active||0;
+    document.getElementById('statPending').textContent=d.pending;
+    document.getElementById('statExhausted').textContent=d.exhausted||0;
+    document.getElementById('statUsers').textContent=d.totalUsers;
+  }).catch(function(){
+    if(adminToken)showDashboard();
+  });
+}
+
+/* 导入订单 */
+document.getElementById('importBtn').onclick=function(){
+  var orders=document.getElementById('orderInput').value.trim();
+  var sku=document.getElementById('skuSelect').value;
+  if(!orders){alert('请输入订单号');return;}
+  
+  var btn=this;
+  btn.disabled=true;btn.textContent='正在导入...';
+  
+  fetch('/api/admin/orders/import',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':adminToken},
+    body:JSON.stringify({orders:orders,sku:sku})
+  }).then(function(r){return r.json()}).then(function(data){
+    var html='<span class="ok">&#x2714; 成功导入 '+data.imported+' 个订单并生成卡密</span>';
+    if(data.skipped>0){
+      html+='<br><span class="skip">跳过 '+data.skipped+' 个重复订单: '+data.skippedOrders.join(', ')+'</span>';
+    }
+    var resultBox=document.getElementById('importResult');
+    resultBox.innerHTML=html;
+    resultBox.classList.add('show');
+    document.getElementById('orderInput').value='';
+    loadStats();
+    loadOrders();
+  }).catch(function(err){
+    alert('导入失败: '+(err.message||'网络错误'));
+  }).finally(function(){
+    btn.disabled=false;btn.textContent='\u{2728} 导入并生成卡密';
+  });
+};
+
+/* 通用复制到剪贴板 */
+function copyToClipboard(text){
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text);
+  }else{
+    var ta=document.createElement('textarea');ta.value=text;
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);
+  }
+}
+
+/* 批量生成直通链接 */
+document.getElementById('genLinksBtn').onclick=function(){
+  var sku=document.getElementById('linkSkuSelect').value;
+  var count=parseInt(document.getElementById('linkCount').value)||1;
+  if(count<1||count>100){alert('数量需在1-100之间');return;}
+  
+  var btn=this;
+  btn.disabled=true;btn.textContent='生成中...';
+  
+  fetch('/api/admin/links/batch',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':adminToken},
+    body:JSON.stringify({sku:sku,count:count})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.error){alert(data.error);return;}
+    renderLinkResult(data.links,sku);
+    loadStats();
+    loadOrders();
+  }).catch(function(err){
+    alert('生成失败: '+(err.message||'网络错误'));
+  }).finally(function(){
+    btn.disabled=false;btn.textContent='\u26A1 生成链接';
+  });
+};
+
+/* 渲染生成的链接列表 */
+function renderLinkResult(links,sku){
+  var box=document.getElementById('linkResult');
+  var origin=window.location.origin;
+  var urls=links.map(function(l){return origin+'/?token='+l.linkToken;});
+  
+  var html='<div class="link-result-header">'+
+    '<span>&#x2714; 已生成 '+links.length+' 个 '+sku+'次 直通链接</span>'+
+    '<button class="copy-all-btn" id="copyAllLinksBtn">&#x1F4CB; 一键复制全部</button>'+
+    '</div>';
+  html+='<div class="link-result-list">';
+  links.forEach(function(l,i){
+    var url=urls[i];
+    html+='<div class="link-item">'+
+      '<span class="idx">'+(i+1)+'</span>'+
+      '<span class="url" title="'+url+'">'+url+'</span>'+
+      '<button class="copy-link-btn" data-url="'+url+'">复制</button>'+
+      '</div>';
+  });
+  html+='</div>';
+  box.innerHTML=html;
+  box.classList.add('show');
+  
+  /* 单个复制 */
+  box.querySelectorAll('.copy-link-btn').forEach(function(btn){
+    btn.onclick=function(){
+      copyToClipboard(this.dataset.url);
+      this.textContent='已复制';
+      this.classList.add('copied');
+      var self=this;
+      setTimeout(function(){self.textContent='复制';self.classList.remove('copied');},1500);
+    };
+  });
+  
+  /* 一键复制全部 */
+  var copyAllBtn=document.getElementById('copyAllLinksBtn');
+  if(copyAllBtn){
+    copyAllBtn.onclick=function(){
+      copyToClipboard(urls.join('\n'));
+      this.textContent='&#x2714; 已复制全部';
+      var self=this;
+      setTimeout(function(){self.textContent='\u{1F4CB} 一键复制全部';},2000);
+    };
+  }
+  
+  /* 滚动到结果区 */
+  box.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* 订单列表 */
+function loadOrders(){
+  var url='/api/admin/orders?page='+currentPage;
+  if(currentFilter!=='all')url+='&status='+currentFilter;
+  
+  fetch(url,{headers:{'x-admin-token':adminToken}})
+  .then(function(r){return r.json()})
+  .then(function(data){
+    renderOrders(data);
+  });
+}
+
+function renderOrders(data){
+  var tbody=document.getElementById('orderTableBody');
+  if(data.orders.length===0){
+    tbody.innerHTML='<tr><td colspan="6" class="empty-row">暂无订单</td></tr>';
+    document.getElementById('pagination').innerHTML='';
+    return;
+  }
+  var html='';
+  var origin=window.location.origin;
+  data.orders.forEach(function(o){
+    var remaining=o.remaining!==undefined?o.remaining:o.credits;
+    var usageBadge;
+    if(remaining===0){
+      usageBadge='<span class="usage-badge usage-empty">0/'+o.credits+' 已用完</span>';
+    }else if(remaining<o.credits){
+      usageBadge='<span class="usage-badge usage-partial">'+remaining+'/'+o.credits+' 使用中</span>';
+    }else{
+      usageBadge='<span class="usage-badge usage-full">'+remaining+'/'+o.credits+' 待使用</span>';
+    }
+    var linkCell;
+    if(o.linkToken){
+      var fullUrl=origin+'/?token='+o.linkToken;
+      linkCell='<td class="link-cell">'+
+        '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" title="'+fullUrl+'">'+fullUrl+'</div>'+
+        '<button class="copy-link" data-url="'+fullUrl+'">复制链接</button>'+
+        '</td>';
+    }else{
+      linkCell='<td class="link-cell">-</td>';
+    }
+    html+='<tr>'+
+      '<td>'+o.orderNo+'</td>'+
+      '<td>'+o.sku+'次</td>'+
+      '<td class="key-cell">'+o.cardKey+' <button class="copy-link" data-key="'+o.cardKey+'">复制</button></td>'+
+      linkCell+
+      '<td>'+usageBadge+'</td>'+
+      '<td><button class="delete-btn" data-order="'+o.orderNo+'">&#x2716;</button></td>'+
+      '</tr>';
+  });
+  tbody.innerHTML=html;
+  
+  /* 绑定复制卡密 */
+  tbody.querySelectorAll('.copy-link[data-key]').forEach(function(btn){
+    btn.onclick=function(){
+      copyToClipboard(this.dataset.key);
+      this.textContent='已复制';
+      var self=this;
+      setTimeout(function(){self.textContent='复制';},1500);
+    };
+  });
+  
+  /* 绑定复制链接 */
+  tbody.querySelectorAll('.copy-link[data-url]').forEach(function(btn){
+    btn.onclick=function(){
+      copyToClipboard(this.dataset.url);
+      this.textContent='已复制';
+      var self=this;
+      setTimeout(function(){self.textContent='复制链接';},1500);
+    };
+  });
+  
+  /* 绑定删除 */
+  tbody.querySelectorAll('.delete-btn').forEach(function(btn){
+    btn.onclick=function(){
+      if(!confirm('确认删除此订单？'))return;
+      var orderNo=this.dataset.order;
+      fetch('/api/admin/orders/'+orderNo,{
+        method:'DELETE',
+        headers:{'x-admin-token':adminToken}
+      }).then(function(r){return r.json()}).then(function(){
+        loadStats();loadOrders();
+      });
+    };
+  });
+  
+  /* 分页 */
+  var pagi=document.getElementById('pagination');
+  if(data.totalPages<=1){pagi.innerHTML='';return;}
+  var ph='';
+  ph+='<button '+(currentPage<=1?'disabled':'')+' data-page="'+(currentPage-1)+'">上一页</button>';
+  for(var i=1;i<=data.totalPages;i++){
+    ph+='<button class="'+(i===currentPage?'active':'')+'" data-page="'+i+'">'+i+'</button>';
+  }
+  ph+='<button '+(currentPage>=data.totalPages?'disabled':'')+' data-page="'+(currentPage+1)+'">下一页</button>';
+  pagi.innerHTML=ph;
+  pagi.querySelectorAll('button').forEach(function(btn){
+    btn.onclick=function(){
+      if(this.disabled)return;
+      currentPage=parseInt(this.dataset.page);
+      loadOrders();
+    };
+  });
+}
+
+/* 筛选 */
+document.querySelectorAll('.filter-bar button').forEach(function(btn){
+  btn.onclick=function(){
+    document.querySelectorAll('.filter-bar button').forEach(function(b){b.classList.remove('active');});
+    this.classList.add('active');
+    currentFilter=this.dataset.filter;
+    currentPage=1;
+    loadOrders();
+  };
+});
+
+/* 自动登录 */
+if(adminToken){
+  fetch('/api/admin/stats',{headers:{'x-admin-token':adminToken}})
+  .then(function(r){
+    if(r.ok)showDashboard();
+    else localStorage.removeItem('pigcat_admin_token');
+  }).catch(function(){});
+}
+})();
+</script>
+</body>
+</html>

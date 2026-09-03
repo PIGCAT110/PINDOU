@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIGCAT 卡密兑换 · 输入订单号领取卡密</title>
+<style>
+@font-face{font-family:'Pixel';src:url('./_shared/fonts/PixelifySans-Medium.ttf')}
+:root{
+  --bg:#FFF8EE;--surface:#FFFFFF;--surface-2:#FFF1E0;
+  --primary:#FF8C42;--secondary:#FF6B6B;--accent:#FFD93D;
+  --mint:#7FD8A0;--pink:#FFB6C1;
+  --ink:#5C3317;--ink-soft:#8B5A3C;--muted:#B89A7A;
+  --line:#5C3317;--line-soft:#E8D5BD;
+  --shadow:4px 4px 0 rgba(92,51,23,.15);
+  --shadow-sm:2px 2px 0 rgba(92,51,23,.15);
+  --radius:14px;--radius-sm:10px;--radius-btn:8px;
+  --font-display:'Pixel','Courier New',monospace;
+  --font-body:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(rgba(255,140,66,.10) 1.5px,transparent 1.5px);
+  background-size:28px 28px;
+  color:var(--ink);font-family:var(--font-body);line-height:1.6;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.container{
+  background:var(--surface);border:2.5px solid var(--line);
+  box-shadow:var(--shadow);border-radius:var(--radius);
+  padding:36px;max-width:480px;width:100%;
+}
+.logo{text-align:center;margin-bottom:24px}
+.logo h1{
+  font-family:var(--font-display);font-size:28px;color:var(--primary);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.logo p{color:var(--ink-soft);font-size:13px;margin-top:4px}
+.form-group{margin-bottom:20px}
+.form-group label{
+  display:block;font-size:13px;font-weight:700;
+  margin-bottom:8px;color:var(--ink-soft);
+}
+.form-group input{
+  width:100%;padding:14px 16px;border:2px solid var(--line);
+  border-radius:var(--radius-btn);font-family:var(--font-display);
+  font-size:18px;font-weight:700;text-align:center;
+  background:var(--surface);box-shadow:var(--shadow-sm);
+  letter-spacing:.05em;
+}
+.form-group input:focus{outline:none;border-color:var(--primary)}
+.btn{
+  width:100%;background:var(--primary);color:#fff;border:none;
+  padding:14px;font-size:16px;font-weight:700;font-family:var(--font-body);
+  border-radius:var(--radius-btn);box-shadow:2px 2px 0 var(--line);
+  cursor:pointer;transition:transform .06s,box-shadow .06s;
+}
+.btn:hover{background:#FF7A28}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0}
+.result{
+  display:none;margin-top:24px;padding:24px;
+  background:var(--surface-2);border:2px solid var(--line-soft);
+  border-radius:var(--radius-sm);text-align:center;
+}
+.result.show{display:block;animation:popIn .3s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.result .label{font-size:12px;color:var(--ink-soft);margin-bottom:10px}
+.result .key{
+  font-family:var(--font-display);font-size:24px;font-weight:700;
+  color:var(--primary);letter-spacing:.08em;margin-bottom:6px;
+  word-break:break-all;
+}
+.result .credits{
+  display:inline-block;background:var(--mint);color:#fff;
+  padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;
+  margin-bottom:14px;
+}
+.result .copy-btn{
+  background:var(--accent);color:var(--ink);border:1.5px solid var(--line);
+  padding:8px 20px;font-size:13px;font-weight:700;
+  border-radius:var(--radius-btn);cursor:pointer;box-shadow:1px 1px 0 var(--line);
+}
+.result .copy-btn:hover{background:#F5CB2E}
+.result .copy-btn:active{transform:translate(1px,1px);box-shadow:0 0 0}
+.result .note{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5}
+.error{
+  display:none;margin-top:16px;padding:12px 16px;
+  background:#FFE5E5;border-left:4px solid var(--secondary);
+  border-radius:0 var(--radius-btn) var(--radius-btn) 0;
+  font-size:13px;color:#C0392B;
+}
+.error.show{display:block}
+.steps{
+  margin-top:28px;padding-top:20px;border-top:2px dashed var(--line-soft);
+}
+.steps h3{font-size:13px;color:var(--ink-soft);margin-bottom:12px}
+.steps ol{padding-left:20px;font-size:12px;color:var(--ink-soft);line-height:1.8}
+.steps ol li{margin-bottom:4px}
+.steps a{color:var(--primary);text-decoration:none;font-weight:700}
+.steps a:hover{text-decoration:underline}
+.already-badge{
+  display:inline-block;background:var(--accent);color:var(--ink);
+  padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;
+  margin-bottom:10px;
+}
+.direct-link-box{
+  display:none;margin-top:20px;padding-top:16px;border-top:2px dashed var(--line-soft);
+}
+.direct-link-box.show{display:block}
+.direct-link-box .link-label{font-size:12px;color:var(--ink-soft);margin-bottom:8px}
+.direct-link-box .link-url{
+  font-family:var(--font-body);font-size:12px;color:var(--primary);
+  word-break:break-all;padding:8px 10px;background:var(--surface);
+  border:1.5px solid var(--line-soft);border-radius:6px;margin-bottom:10px;
+}
+.direct-link-box .link-actions{display:flex;gap:8px;justify-content:center}
+.direct-link-box .link-actions a,.direct-link-box .link-actions button{
+  padding:8px 16px;font-size:12px;font-weight:700;border-radius:var(--radius-btn);
+  border:1.5px solid var(--line);cursor:pointer;text-decoration:none;
+  box-shadow:1px 1px 0 var(--line);transition:transform .06s;
+}
+.direct-link-box .link-actions a:active,.direct-link-box .link-actions button:active{
+  transform:translate(1px,1px);box-shadow:0 0 0;
+}
+.direct-link-box .open-link-btn{background:var(--primary);color:#fff}
+.direct-link-box .copy-link-btn{background:var(--mint);color:#fff}
+.nav-links{
+  display:flex;gap:8px;justify-content:center;margin-top:20px;
+}
+.nav-links a{
+  font-size:12px;color:var(--ink-soft);text-decoration:none;
+  padding:4px 12px;border:1.5px solid var(--line-soft);border-radius:20px;
+}
+.nav-links a:hover{color:var(--primary);border-color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <h1>&#x1F3A8; PIGCAT 拼豆工坊</h1>
+    <p>输入订单号，自动领取您的卡密</p>
+  </div>
+
+  <div class="form-group">
+    <label for="orderInput">请输入您的订单号</label>
+    <input type="text" id="orderInput" placeholder="例如：202408121234" autocomplete="off">
+  </div>
+
+  <button class="btn" id="redeemBtn">&#x1F511; 领取卡密</button>
+
+  <div class="error" id="errorBox"></div>
+
+  <div class="result" id="resultBox">
+    <div id="alreadyBadge" class="already-badge" style="display:none">&#x2714; 您已领取过，可再次查看</div>
+    <div class="label">您的专属卡密</div>
+    <div class="key" id="keyDisplay">-</div>
+    <div class="credits" id="creditsDisplay">可生成 0 次</div>
+    <br>
+    <button class="copy-btn" id="copyBtn">&#x1F4CB; 复制卡密</button>
+    <div class="note">
+      复制卡密后，打开 PIGCAT 拼豆工坊，在卡密输入框粘贴即可使用。<br>
+      每次生成图纸消耗 1 次次数，用完自动失效。
+    </div>
+    <div class="direct-link-box" id="directLinkBox">
+      <div class="link-label">&#x1F517; 或使用直通链接（免输卡密，点击即用）</div>
+      <div class="link-url" id="linkUrlDisplay">-</div>
+      <div class="link-actions">
+        <a class="open-link-btn" id="openLinkBtn" href="#" target="_blank">&#x1F517; 打开链接</a>
+        <button class="copy-link-btn" id="copyLinkBtn">&#x1F4CB; 复制链接</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <h3>&#x1F4DD; 使用步骤</h3>
+    <ol>
+      <li>在上方输入您下单时获得的订单号</li>
+      <li>点击「领取卡密」获取您的专属卡密</li>
+      <li>复制卡密，打开 <a href="/">PIGCAT 拼豆工坊</a></li>
+      <li>在工坊页面点击卡密区域，粘贴卡密即可开始使用</li>
+    </ol>
+  </div>
+
+  <div class="nav-links">
+    <a href="/">&#x1F3E0; 拼豆工坊</a>
+    <a href="/admin.html">&#x1F6E0; 管理后台</a>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var orderInput=document.getElementById('orderInput');
+var redeemBtn=document.getElementById('redeemBtn');
+var resultBox=document.getElementById('resultBox');
+var errorBox=document.getElementById('errorBox');
+var keyDisplay=document.getElementById('keyDisplay');
+var creditsDisplay=document.getElementById('creditsDisplay');
+var copyBtn=document.getElementById('copyBtn');
+var alreadyBadge=document.getElementById('alreadyBadge');
+var directLinkBox=document.getElementById('directLinkBox');
+var linkUrlDisplay=document.getElementById('linkUrlDisplay');
+var openLinkBtn=document.getElementById('openLinkBtn');
+var copyLinkBtn=document.getElementById('copyLinkBtn');
+
+function showError(msg){
+  errorBox.textContent=msg;
+  errorBox.classList.add('show');
+  resultBox.classList.remove('show');
+}
+
+function showResult(data){
+  errorBox.classList.remove('show');
+  keyDisplay.textContent=data.cardKey;
+  creditsDisplay.textContent='可生成 '+data.credits+' 次';
+  alreadyBadge.style.display=data.alreadyRedeemed?'inline-block':'none';
+  resultBox.classList.add('show');
+  
+  /* 展示直通链接 */
+  if(data.linkToken){
+    var fullUrl=window.location.origin+'/?token='+data.linkToken;
+    linkUrlDisplay.textContent=fullUrl;
+    openLinkBtn.href=fullUrl;
+    directLinkBox.classList.add('show');
+  }else{
+    directLinkBox.classList.remove('show');
+  }
+}
+
+redeemBtn.onclick=function(){
+  var orderNo=orderInput.value.trim();
+  if(!orderNo){
+    showError('请输入订单号');
+    return;
+  }
+  redeemBtn.disabled=true;
+  redeemBtn.textContent='正在查询...';
+  
+  fetch('/api/redeem',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({orderNo:orderNo})
+  }).then(function(resp){
+    return resp.json().then(function(data){
+      if(!resp.ok)throw new Error(data.error||'查询失败');
+      return data;
+    });
+  }).then(function(data){
+    showResult(data);
+  }).catch(function(err){
+    showError(err.message||'网络错误，请重试');
+  }).finally(function(){
+    redeemBtn.disabled=false;
+    redeemBtn.textContent='\u{1F511} 领取卡密';
+  });
+};
+
+orderInput.addEventListener('keydown',function(e){
+  if(e.key==='Enter')redeemBtn.click();
+});
+
+copyBtn.onclick=function(){
+  var key=keyDisplay.textContent;
+  if(!key||key==='-')return;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(key).then(function(){
+      copyBtn.textContent='\u{2714} 已复制';
+      setTimeout(function(){copyBtn.textContent='\u{1F4CB} 复制卡密';},1500);
+    });
+  }else{
+    var ta=document.createElement('textarea');
+    ta.value=key;
+    document.body.appendChild(ta);
+    ta.select();
+    try{document.execCommand('copy');copyBtn.textContent='\u{2714} 已复制';setTimeout(function(){copyBtn.textContent='\u{1F4CB} 复制卡密';},1500);}catch(e){}
+    document.body.removeChild(ta);
+  }
+};
+
+copyLinkBtn.onclick=function(){
+  var url=linkUrlDisplay.textContent;
+  if(!url||url==='-')return;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){
+      copyLinkBtn.textContent='\u{2714} 已复制';
+      setTimeout(function(){copyLinkBtn.textContent='\u{1F4CB} 复制链接';},1500);
+    });
+  }else{
+    var ta=document.createElement('textarea');
+    ta.value=url;
+    document.body.appendChild(ta);
+    ta.select();
+    try{document.execCommand('copy');copyLinkBtn.textContent='\u{2714} 已复制';setTimeout(function(){copyLinkBtn.textContent='\u{1F4CB} 复制链接';},1500);}catch(e){}
+    document.body.removeChild(ta);
+  }
+};
+
+orderInput.focus();
+})();
+</script>
+</body>
+</html>

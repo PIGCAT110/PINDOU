@@ -1,3 +1,5 @@
 node_modules/
 *.log
 .DS_Store
+.code-mode-devkit.js
+.code-mode-manifest.json

@@ -456,6 +456,107 @@ app.post('/api/admin/links/batch', adminAuth, (req, res) => {
   res.json({ count: newLinks.length, links: newLinks });
 });
 
+// ============================================================
+// 自动发货接口（供小红书/闲鱼自动发货软件调用）
+// ============================================================
+// 用途：当下单发生时，自动发货软件调用本接口，传入订单号 + SKU，
+//      后台自动生成对应次数的卡密与直通链接。
+// 幂等：同一订单号重复调用只生成一次，重复调用返回同一链接（安全重试）。
+// 鉴权：通过 X-Fulfill-Secret 请求头 或 secret 字段/查询参数。
+// 链接格式：https://域名/?token=xxxxxxxxxxxx
+// 顾客点击该链接即可直接进入拼豆工坊，无需输入卡密，自动解锁对应次数。
+const FULFILL_SECRET = process.env.FULFILL_SECRET || 'pigcat_fulfill_2024';
+
+function fulfillOrder(orderNo, sku, origin) {
+  const plan = SKU_TO_PLAN[sku];
+  if (!plan) return { error: '无效的 sku，需为 1/3/5/10' };
+  if (!orderNo || !String(orderNo).trim()) return { error: '缺少 orderNo（订单号）' };
+
+  const orders = loadJson('orders.json');
+  const orderNoTrim = String(orderNo).trim();
+
+  // 幂等：订单已存在则直接返回原链接（避免重复生成）
+  const existing = orders.find(o => o.orderNo === orderNoTrim);
+  if (existing) {
+    return {
+      ok: true,
+      orderNo: existing.orderNo,
+      sku: existing.sku,
+      credits: existing.credits,
+      cardKey: existing.cardKey,
+      linkToken: existing.linkToken,
+      link: existing.linkToken ? (origin + '/?token=' + existing.linkToken) : '',
+      remaining: existing.remaining !== undefined ? existing.remaining : existing.credits,
+      reused: true
+    };
+  }
+
+  // 首次：生成卡密 + 直通链接
+  const cardKey = generateServerKey(plan);
+  const linkToken = generateLinkToken();
+  const order = {
+    orderNo: orderNoTrim,
+    sku,
+    credits: KEY_PLAN_CREDITS[plan],
+    remaining: KEY_PLAN_CREDITS[plan],
+    cardKey,
+    linkToken,
+    status: 'pending',
+    createdAt: Date.now(),
+    redeemedAt: null
+  };
+  orders.push(order);
+  saveJson('orders.json', orders);
+  console.log(`[AUTO] 自动发货：订单 ${orderNoTrim} (sku=${sku}) → 生成链接 token=${linkToken.substring(0, 8)}...`);
+  return {
+    ok: true,
+    orderNo: order.orderNo,
+    sku: order.sku,
+    credits: order.credits,
+    cardKey: order.cardKey,
+    linkToken: order.linkToken,
+    link: origin + '/?token=' + order.linkToken,
+    remaining: order.credits,
+    reused: false
+  };
+}
+
+// POST 方式（推荐，自动发货软件常用）
+app.post('/api/auto/fulfill', (req, res) => {
+  const secret = req.headers['x-fulfill-secret'] || req.body.secret;
+  if (secret !== FULFILL_SECRET) {
+    return res.status(401).json({ error: '鉴权失败：secret 不正确' });
+  }
+  const origin = req.protocol + '://' + req.get('host');
+  const result = fulfillOrder(req.body.orderNo, req.body.sku, origin);
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
+});
+
+// GET 方式（部分发货软件只支持 GET，方便浏览器/手测）
+app.get('/api/auto/fulfill', (req, res) => {
+  const secret = req.headers['x-fulfill-secret'] || req.query.secret;
+  if (secret !== FULFILL_SECRET) {
+    return res.status(401).json({ error: '鉴权失败：secret 不正确' });
+  }
+  const origin = req.protocol + '://' + req.get('host');
+  const result = fulfillOrder(req.query.orderNo, req.query.sku, origin);
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
+});
+
+// 管理员查看自动发货配置（便于接入发货软件）
+app.get('/api/admin/fulfill-config', adminAuth, (req, res) => {
+  const origin = req.protocol + '://' + req.get('host');
+  res.json({
+    secret: FULFILL_SECRET,
+    endpoint: origin + '/api/auto/fulfill',
+    method: 'POST 或 GET',
+    linkTemplate: origin + '/?token={token}',
+    skus: [{ sku: '1', credits: 1 }, { sku: '3', credits: 3 }, { sku: '5', credits: 5 }, { sku: '10', credits: 10 }]
+  });
+});
+
 // 根路径重定向到主页面
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'beadloom-studio.html'));

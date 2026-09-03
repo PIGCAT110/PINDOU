@@ -198,6 +198,47 @@ tr:hover{background:var(--surface-2)}
   cursor:pointer;box-shadow:var(--shadow-sm);transition:background .15s;
 }
 .copy-all-btn:hover{background:#6BC88F}
+/* 自动发货接入 */
+.autofill-info{
+  background:var(--surface-2);border:1.5px solid var(--line-soft);
+  border-radius:var(--radius-btn);padding:14px 16px;margin-bottom:16px;
+  font-size:12px;color:var(--ink-soft);line-height:1.7;
+}
+.autofill-info .row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.autofill-info .row:last-child{margin-bottom:0}
+.autofill-info .k{font-weight:700;color:var(--ink);min-width:64px}
+.autofill-info .v{
+  font-family:var(--font-body);font-size:12px;color:var(--primary);
+  word-break:break-all;background:var(--surface);padding:3px 8px;
+  border:1px solid var(--line-soft);border-radius:6px;flex:1;min-width:120px;
+}
+.autofill-info .copy-mini{
+  background:var(--accent);color:var(--ink);border:1px solid var(--line);
+  padding:3px 10px;font-size:11px;font-weight:700;border-radius:4px;
+  cursor:pointer;box-shadow:1px 1px 0 var(--line);white-space:nowrap;
+}
+.autofill-info .copy-mini:hover{background:#F5CB2E}
+.autofill-info .hint{margin-top:8px;font-size:11px;color:var(--muted)}
+.autofill-info code{
+  background:var(--surface);padding:2px 6px;border:1px solid var(--line-soft);
+  border-radius:4px;font-size:11px;color:var(--ink);word-break:break-all;
+}
+.autofill-result{display:none;margin-top:14px}
+.autofill-result.show{display:block}
+.autofill-result .link-url{
+  font-family:var(--font-body);font-size:13px;color:var(--primary);
+  word-break:break-all;padding:8px 10px;background:var(--surface);
+  border:1.5px solid var(--line-soft);border-radius:6px;margin-bottom:8px;
+}
+.autofill-result .actions{display:flex;gap:8px;flex-wrap:wrap}
+.autofill-result .actions a,.autofill-result .actions button{
+  padding:7px 14px;font-size:12px;font-weight:700;border-radius:var(--radius-btn);
+  border:1.5px solid var(--line);cursor:pointer;text-decoration:none;
+  box-shadow:1px 1px 0 var(--line);
+}
+.autofill-result .open-btn{background:var(--primary);color:#fff}
+.autofill-result .copy-btn{background:var(--mint);color:#fff}
+.autofill-result .meta{font-size:11px;color:var(--muted);margin-top:6px}
 /* 剩余次数徽章 */
 .usage-badge{
   display:inline-block;padding:2px 8px;border-radius:12px;
@@ -293,6 +334,31 @@ tr:hover{background:var(--surface-2)}
     <div class="link-result" id="linkResult"></div>
   </div>
 
+  <!-- 自动发货接入 -->
+  <div class="link-gen-section">
+    <h2>&#x1F4E6; 自动发货接入（小红书/闲鱼下单自动生成链接）</h2>
+    <div class="autofill-info" id="autofillInfo">加载中...</div>
+    <div class="autofill-test">
+      <div class="link-gen-row">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">订单号</label>
+          <input type="text" id="fulfillOrderNo" placeholder="例如：XHS20260904001" style="width:200px;padding:10px 12px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-body);font-size:13px;background:var(--surface);box-shadow:var(--shadow-sm)">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft)">SKU</label>
+          <select id="fulfillSkuSelect" style="padding:10px 14px;border:2px solid var(--line);border-radius:var(--radius-btn);font-family:var(--font-body);font-size:14px;font-weight:700;background:var(--surface);box-shadow:var(--shadow-sm);cursor:pointer">
+            <option value="1">1 次</option>
+            <option value="3" selected>3 次</option>
+            <option value="5">5 次</option>
+            <option value="10">10 次</option>
+          </select>
+        </div>
+        <button class="btn btn-mint" id="fulfillTestBtn">&#x26A1; 生成/查询链接</button>
+      </div>
+      <div class="autofill-result" id="fulfillResult"></div>
+    </div>
+  </div>
+
   <!-- 订单列表 -->
   <div class="orders-section">
     <h2>&#x1F4CB; 订单列表</h2>
@@ -361,6 +427,7 @@ function showDashboard(){
   document.getElementById('dashboard').classList.add('show');
   loadStats();
   loadOrders();
+  loadFulfillConfig();
 }
 
 /* 退出 */
@@ -499,6 +566,97 @@ function renderLinkResult(links,sku){
   
   /* 滚动到结果区 */
   box.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* ============================================================
+   自动发货接入：加载配置 + 测试生成链接
+   ============================================================ */
+function loadFulfillConfig(){
+  fetch('/api/admin/fulfill-config',{headers:{'x-admin-token':adminToken}})
+  .then(function(r){
+    if(!r.ok)throw new Error('加载失败');
+    return r.json();
+  }).then(function(cfg){
+    renderFulfillInfo(cfg);
+  }).catch(function(err){
+    document.getElementById('autofillInfo').innerHTML=
+      '<div style="color:var(--secondary);font-size:12px">配置加载失败：'+(err.message||'')+'</div>';
+  });
+}
+
+function renderFulfillInfo(cfg){
+  var exampleCurl='curl -X POST '+cfg.endpoint+' \\\n'+
+    '  -H "Content-Type: application/json" \\\n'+
+    '  -H "X-Fulfill-Secret: '+cfg.secret+'" \\\n'+
+    '  -d \'{"orderNo":"XHS20260904001","sku":"3"}\'';
+  var html='<div class="row"><span class="k">接口地址</span>'+
+    '<span class="v" id="ffEndpoint">'+cfg.endpoint+'</span>'+
+    '<button class="copy-mini" data-copy="'+cfg.endpoint+'">复制</button></div>';
+  html+='<div class="row"><span class="k">鉴权密钥</span>'+
+    '<span class="v" id="ffSecret">'+cfg.secret+'</span>'+
+    '<button class="copy-mini" data-copy="'+cfg.secret+'">复制</button></div>';
+  html+='<div class="row"><span class="k">请求方式</span>'+
+    '<span class="v">'+cfg.method+'（参数 orderNo、sku）</span></div>';
+  html+='<div class="row"><span class="k">链接模板</span>'+
+    '<span class="v">'+cfg.linkTemplate+'</span></div>';
+  html+='<div class="row" style="flex-direction:column;align-items:stretch">'+
+    '<span class="k">调用示例</span><code>'+exampleCurl+'</code></div>';
+  html+='<div class="hint">下单时自动发货软件调用此接口，传入小红书订单号与所选次数(sku=1/3/5/10)，'+
+    '后台自动生成对应次数的卡密与直通链接。同一订单号重复调用幂等返回同一链接。'+
+    '买家收到链接后点击即可直接进入拼豆工坊并自动解锁对应次数，无需输入卡密。</div>';
+  document.getElementById('autofillInfo').innerHTML=html;
+
+  /* 绑定复制 */
+  document.querySelectorAll('#autofillInfo .copy-mini').forEach(function(btn){
+    btn.onclick=function(){
+      copyToClipboard(this.dataset.copy);
+      this.textContent='已复制';
+      var self=this;
+      setTimeout(function(){self.textContent='复制';},1500);
+    };
+  });
+}
+
+/* 测试：生成/查询链接 */
+document.getElementById('fulfillTestBtn').onclick=function(){
+  var orderNo=document.getElementById('fulfillOrderNo').value.trim();
+  var sku=document.getElementById('fulfillSkuSelect').value;
+  var box=document.getElementById('fulfillResult');
+  if(!orderNo){alert('请输入订单号');return;}
+  var secret=document.getElementById('ffSecret')?document.getElementById('ffSecret').textContent:'';
+  var btn=this;
+  btn.disabled=true;btn.textContent='处理中...';
+  fetch('/api/auto/fulfill',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-Fulfill-Secret':secret},
+    body:JSON.stringify({orderNo:orderNo,sku:sku})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(data.error){
+      box.innerHTML='<div style="color:var(--secondary);font-size:12px">'+data.error+'</div>';
+      box.classList.add('show');
+      return;
+    }
+    box.innerHTML='<div class="link-url" id="ffLinkUrl">'+data.link+'</div>'+
+      '<div class="actions">'+
+      '<a class="open-btn" href="'+data.link+'" target="_blank">&#x1F517; 打开链接</a>'+
+      '<button class="copy-btn" id="ffCopyBtn">&#x1F4CB; 复制链接</button>'+
+      '</div>'+
+      '<div class="meta">订单号：'+data.orderNo+' · 次数：'+data.credits+' · 卡密：'+data.cardKey+
+      (data.reused?' · （已存在，返回原链接）':' · （新生成）')+'</div>';
+    box.classList.add('show');
+    document.getElementById('ffCopyBtn').onclick=function(){
+      copyToClipboard(data.link);
+      this.textContent='已复制';
+      var self=this;
+      setTimeout(function(){self.textContent='\u{1F4CB} 复制链接';},1500);
+    };
+    loadStats();loadOrders();
+  }).catch(function(err){
+    box.innerHTML='<div style="color:var(--secondary);font-size:12px">请求失败：'+(err.message||'')+'</div>';
+    box.classList.add('show');
+  }).finally(function(){
+    btn.disabled=false;btn.textContent='\u26A1 生成/查询链接';
+  });
 }
 
 /* 订单列表 */

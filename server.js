@@ -580,7 +580,7 @@ const AI_API_CONFIG = {
   // API基础地址
   baseUrl: 'https://api.lk888.ai',
   // API密钥
-  apiKey: process.env.AI_API_KEY || 'sk-0f03f2ad8c1143fc92ac5badccd8d8a4b590689834f6ea60',
+  apiKey: 'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
   // 模型名称
   model: 'gpt-image-2',
   // 卡通化提示词（由前端传入完整提示词，此处为后备默认值）
@@ -598,7 +598,7 @@ const AI_API_CONFIG = {
 // ============================================================
 const LLM_API_CONFIG = {
   baseUrl: 'https://api.lk888.ai',
-  apiKey: process.env.AI_API_KEY || 'sk-0f03f2ad8c1143fc92ac5badccd8d8a4b590689834f6ea60',
+  apiKey: 'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
   model: 'gpt-5.4-mini',
 };
 

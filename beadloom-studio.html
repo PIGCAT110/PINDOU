@@ -2215,17 +2215,22 @@ function downloadFromHistory(idx){
 }
 
 function updateUsage(){
-  document.getElementById('usageCount').textContent=creditsRemaining+' 次可用';
-  document.getElementById('usageBar').style.width=(creditsRemaining>0?100:0)+'%';
-  document.getElementById('creditsCount').textContent=creditsRemaining;
+  var usageCount=document.getElementById('usageCount');
+  var usageBar=document.getElementById('usageBar');
+  var creditsCount=document.getElementById('creditsCount');
   var hint=document.getElementById('usageHint');
   var closeBtn=document.getElementById('closeModal');
+  if(usageCount)usageCount.textContent=creditsRemaining+' 次可用';
+  if(usageBar)usageBar.style.width=(creditsRemaining>0?100:0)+'%';
+  if(creditsCount)creditsCount.textContent=creditsRemaining;
   if(creditsRemaining>0){
-    hint.textContent='当前卡密可用，每次生成图纸消耗 1 次';
-    closeBtn.style.display='';
+    if(hint)hint.textContent='当前卡密可用，每次生成图纸消耗 1 次';
+    if(closeBtn)closeBtn.style.display='';
   }else{
-    hint.textContent='请输入卡密后开始使用';
-    closeBtn.style.display='none';
+    if(hint){
+      hint.textContent=linkMode?'当前链接次数已用完':'请输入卡密后开始使用';
+    }
+    if(closeBtn)closeBtn.style.display='none';
   }
 }
 

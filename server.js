@@ -94,6 +94,16 @@ function getKeyCredits(key) {
   return KEY_PLAN_CREDITS[chars.charAt(0)] || 0;
 }
 
+// 查找服务端登记过的独立卡密（keys.json）。
+// 重要：卡密校验算法是公开的，任何“结构合法”的卡密都可能被伪造，
+// 因此只有服务端登记过的卡密才允许使用，否则卡密体系形同虚设。
+function findRegistryKey(rawKey) {
+  const upper = String(rawKey || '').trim().toUpperCase();
+  if (!upper) return null;
+  const keys = loadJson('keys.json');
+  return keys.find(k => String(k.cardKey || '').toUpperCase() === upper) || null;
+}
+
 // 生成链接令牌（12位hex，用于直通链接）
 function generateLinkToken() {
   return crypto.randomBytes(6).toString('hex');
@@ -214,11 +224,23 @@ app.delete('/api/history/:id', (req, res) => {
 // ============================================================
 let adminToken = null;
 
+// 管理员登录限流：防止密码被暴力破解（5 分钟内最多 5 次失败）
+const adminLoginFails = new Map();
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rec = adminLoginFails.get(ip) || { count: 0, resetAt: now + 5 * 60 * 1000 };
+  if (now > rec.resetAt) { rec.count = 0; rec.resetAt = now + 5 * 60 * 1000; }
+  if (rec.count >= 5) {
+    return res.status(429).json({ error: '尝试次数过多，请 5 分钟后再试' });
+  }
   if (password !== ADMIN_PASSWORD) {
+    rec.count++;
+    adminLoginFails.set(ip, rec);
     return res.status(401).json({ error: '管理员密码错误' });
   }
+  adminLoginFails.delete(ip);
   adminToken = generateToken();
   res.json({ token: adminToken });
 });
@@ -230,6 +252,81 @@ function adminAuth(req, res, next) {
   }
   next();
 }
+
+// ============================================================
+// 管理员卡密生成（服务端登记）
+// ============================================================
+// 只有通过本接口生成的卡密才会被服务端认可；公开页面无法伪造可用卡密。
+app.post('/api/admin/keys/generate', adminAuth, (req, res) => {
+  const body = req.body || {};
+  const plan = String(body.plan || 'A').toUpperCase();
+  if (!KEY_PLAN_CREDITS[plan]) {
+    return res.status(400).json({ error: '无效套餐，需为 A/B/C/D' });
+  }
+  let count = parseInt(body.count, 10);
+  if (!Number.isFinite(count) || count < 1) count = 1;
+  if (count > 100) count = 100;
+
+  const keys = loadJson('keys.json');
+  const existing = new Set(keys.map(k => String(k.cardKey).toUpperCase()));
+  const created = [];
+  for (let i = 0; i < count; i++) {
+    let cardKey;
+    do { cardKey = generateServerKey(plan); } while (existing.has(cardKey));
+    existing.add(cardKey);
+    const item = {
+      cardKey,
+      plan,
+      credits: KEY_PLAN_CREDITS[plan],
+      remaining: KEY_PLAN_CREDITS[plan],
+      createdAt: Date.now()
+    };
+    keys.push(item);
+    created.push(item);
+  }
+  saveJson('keys.json', keys);
+  console.log(`[KEYGEN] 管理员生成 ${created.length} 个卡密（套餐 ${plan}）`);
+  res.json({ ok: true, keys: created });
+});
+
+// 管理员查看已生成的卡密
+app.get('/api/admin/keys', adminAuth, (req, res) => {
+  res.json({ keys: loadJson('keys.json') });
+});
+
+// 导入并登记历史卡密（用于安全升级后，让此前已售出的卡密继续可用）
+app.post('/api/admin/keys/import', adminAuth, (req, res) => {
+  const body = req.body || {};
+  const list = Array.isArray(body.keys) ? body.keys : [];
+  const parsedRemaining = parseInt(body.remaining, 10);
+  const remainingOverride = Number.isFinite(parsedRemaining)
+    ? Math.max(0, parsedRemaining)
+    : null;
+
+  const keys = loadJson('keys.json');
+  const existing = new Set(keys.map(k => String(k.cardKey).toUpperCase()));
+  let added = 0, skipped = 0, invalid = 0;
+
+  for (const raw of list) {
+    const cardKey = String(raw || '').trim().toUpperCase();
+    if (!validateServerKey(cardKey)) { invalid++; continue; }
+    if (existing.has(cardKey)) { skipped++; continue; }
+    const credits = getKeyCredits(cardKey);
+    keys.push({
+      cardKey,
+      plan: cardKey.charAt(3),
+      credits,
+      remaining: remainingOverride !== null ? Math.min(remainingOverride, credits) : credits,
+      createdAt: Date.now(),
+      imported: true
+    });
+    existing.add(cardKey);
+    added++;
+  }
+
+  saveJson('keys.json', keys);
+  res.json({ ok: true, added, skipped, invalid });
+});
 
 // ============================================================
 // 订单管理 + 卡密自动生成
@@ -391,8 +488,14 @@ app.post('/api/redeem', (req, res) => {
 app.post('/api/verify-key', (req, res) => {
   const { key } = req.body;
   if (!key) return res.json({ valid: false });
-  const upper = key.trim().toUpperCase();
-  res.json({ valid: validateServerKey(upper), credits: getKeyCredits(upper) });
+  const upper = String(key).trim().toUpperCase();
+  // 只认可服务端登记过的卡密（订单库或独立卡密库），防止用公开算法伪造卡密
+  const order = loadJson('orders.json').find(o => String(o.cardKey || '').toUpperCase() === upper);
+  const rec = order || findRegistryKey(upper);
+  if (!rec) return res.json({ valid: false });
+  const remaining = rec.remaining !== undefined ? rec.remaining : rec.credits;
+  if (remaining <= 0) return res.json({ valid: false, expired: true, credits: rec.credits, remaining: 0 });
+  res.json({ valid: true, credits: rec.credits, remaining });
 });
 
 // ============================================================
@@ -576,11 +679,15 @@ app.get('/', (req, res) => {
 // ============================================================
 // AI卡通化API配置（OpenAI兼容格式 · gpt-image-2）
 // ============================================================
+// AI API密钥只允许来自环境变量/.env，绝不硬编码进代码或前端页面
+const AI_API_KEY = (process.env.AI_API_KEY || '').trim();
+const AI_BASE_URL = (process.env.AI_BASE_URL || 'https://api.lk888.ai').trim();
+
 const AI_API_CONFIG = {
   // API基础地址
-  baseUrl: 'https://api.lk888.ai',
+  baseUrl: AI_BASE_URL,
   // API密钥
-  apiKey: 'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
+  apiKey: AI_API_KEY,
   // 模型名称
   model: 'gpt-image-2',
   // 卡通化提示词（由前端传入完整提示词，此处为后备默认值）
@@ -597,8 +704,8 @@ const AI_API_CONFIG = {
 // 对话大模型API配置（用于提示词优化）
 // ============================================================
 const LLM_API_CONFIG = {
-  baseUrl: 'https://api.lk888.ai',
-  apiKey: 'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
+  baseUrl: AI_BASE_URL,
+  apiKey: (process.env.LLM_API_KEY || AI_API_KEY).trim(),
   model: 'gpt-5.4-mini',
 };
 
@@ -710,7 +817,7 @@ function localOptimizePrompt(input) {
 //   3. 若LLM API不可用，使用本地优化算法作为后备
 //   4. 返回优化后的提示词给前端
 // ============================================================
-app.post('/api/optimize-prompt', async (req, res) => {
+app.post('/api/optimize-prompt', rateLimitOptimize, requireCredential, async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -881,7 +988,130 @@ async function callAiApi(imageBuffer, mimeType, ext, retryCount, customPrompt) {
 // ============================================================
 // /api/cartoonize 端点
 // ============================================================
-app.post('/api/cartoonize', async (req, res) => {
+// ============================================================
+// AI接口安全防护：凭据校验 + 按IP限流
+// 目的：防止密钥/接口被他人盗刷（这是此前的核心漏洞）
+// 规则：调用AI接口必须携带有效的链接令牌或卡密；
+//       同一IP在时间窗内请求数超限则拒绝。
+// ============================================================
+const IP_RATE_LIMIT = { windowMs: 60 * 1000, max: 10 }; // 每IP每分钟最多10次生图请求
+const ipRateMap = new Map();
+
+function rateLimitByIp(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rec = ipRateMap.get(ip) || { count: 0, resetAt: now + IP_RATE_LIMIT.windowMs };
+  if (now > rec.resetAt) {
+    rec.count = 0;
+    rec.resetAt = now + IP_RATE_LIMIT.windowMs;
+  }
+  rec.count++;
+  ipRateMap.set(ip, rec);
+  if (rec.count > IP_RATE_LIMIT.max) {
+    return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+  }
+  next();
+}
+
+// 提示词优化调用量大且成本低，单独放宽限制
+const optimizeRateMap = new Map();
+function rateLimitOptimize(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rec = optimizeRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
+  if (now > rec.resetAt) {
+    rec.count = 0;
+    rec.resetAt = now + 60000;
+  }
+  rec.count++;
+  optimizeRateMap.set(ip, rec);
+  if (rec.count > 30) {
+    return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+  }
+  next();
+}
+
+// 校验调用者是否持有有效凭据（链接令牌 或 卡密）
+function hasValidCredential(req) {
+  const body = req.body || {};
+  const linkToken = String(body.linkToken || req.headers['x-link-token'] || '').trim();
+  const orders = loadJson('orders.json');
+
+  if (linkToken) {
+    const order = orders.find(o => o.linkToken === linkToken);
+    if (!order) return false;
+    const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+    return remaining > 0;
+  }
+
+  const rawKey = String(body.cardKey || req.headers['x-card-key'] || '').trim().toUpperCase();
+  if (!rawKey) return false;
+  if (!validateServerKey(rawKey)) return false;
+  // 服务端issuance的卡密：以订单记录的剩余次数为准
+  const order = orders.find(o => String(o.cardKey || '').toUpperCase() === rawKey);
+  if (order) {
+    const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+    return remaining > 0;
+  }
+  // 独立卡密：必须是管理员在服务端登记过的（keys.json），否则拒绝伪造卡密
+  const reg = findRegistryKey(rawKey);
+  if (reg) {
+    const remaining = reg.remaining !== undefined ? reg.remaining : reg.credits;
+    return remaining > 0;
+  }
+  return false;
+}
+
+function requireCredential(req, res, next) {
+  if (!hasValidCredential(req)) {
+    return res.status(401).json({ error: '无效或已用尽的凭据，请通过购买链接或卡密进入' });
+  }
+  next();
+}
+
+// 原子扣次（在 AI 出图成功后调用）：链接令牌与卡密统一在服务端计数。
+// 前端不再自行扣次，避免清缓存绕过、重复扣费以及最后一次无法使用的问题。
+function consumeCredentialOnce(body, headers) {
+  body = body || {};
+  headers = headers || {};
+  const linkToken = String(body.linkToken || headers['x-link-token'] || '').trim();
+  const cardKey = String(body.cardKey || headers['x-card-key'] || '').trim().toUpperCase();
+  const orders = loadJson('orders.json');
+
+  if (linkToken) {
+    const order = orders.find(o => o.linkToken === linkToken);
+    if (!order) return { error: '凭据无效' };
+    const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+    if (remaining <= 0) return { error: '使用次数已用完', remaining: 0 };
+    order.remaining = remaining - 1;
+    saveJson('orders.json', orders);
+    return { ok: true, remaining: order.remaining, credits: order.credits };
+  }
+
+  if (cardKey) {
+    const order = orders.find(o => String(o.cardKey || '').toUpperCase() === cardKey);
+    if (order) {
+      const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+      if (remaining <= 0) return { error: '使用次数已用完', remaining: 0 };
+      order.remaining = remaining - 1;
+      saveJson('orders.json', orders);
+      return { ok: true, remaining: order.remaining, credits: order.credits };
+    }
+    const keys = loadJson('keys.json');
+    const reg = keys.find(k => String(k.cardKey || '').toUpperCase() === cardKey);
+    if (reg) {
+      const remaining = reg.remaining !== undefined ? reg.remaining : reg.credits;
+      if (remaining <= 0) return { error: '使用次数已用完', remaining: 0 };
+      reg.remaining = remaining - 1;
+      saveJson('keys.json', keys);
+      return { ok: true, remaining: reg.remaining, credits: reg.credits };
+    }
+  }
+
+  return { error: '凭据无效' };
+}
+
+app.post('/api/cartoonize', rateLimitByIp, requireCredential, async (req, res) => {
   try {
     const { image, prompt } = req.body;
     
@@ -908,8 +1138,15 @@ app.post('/api/cartoonize', async (req, res) => {
 
     const resultImage = await callAiApi(imageBuffer, mimeType, ext, 0, prompt);
 
+    // AI 出图成功后再扣次：失败不扣费，且由服务端计数，前端无法绕过
+    const consumed = consumeCredentialOnce(req.body, req.headers);
+
     console.log('[AI] 卡通化完成，返回图片给前端');
-    res.json({ result: resultImage });
+    res.json({
+      result: resultImage,
+      remaining: consumed.ok ? consumed.remaining : undefined,
+      credits: consumed.ok ? consumed.credits : undefined
+    });
 
   } catch (err) {
     console.error('[AI] 服务器错误:', err.message);
@@ -929,14 +1166,39 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 诊断：无需登录，仅返回管理员密码的来源与长度（不输出明文），
-// 用于排查"输入密码提示错误"时确认服务器当前实际生效的是哪个密码。
-app.get('/api/debug/admin-pwd-info', (req, res) => {
-  res.json({
-    source: process.env.ADMIN_PASSWORD ? '环境变量/.env' : '代码默认',
-    length: ADMIN_PASSWORD.length,
-    hint: 'length=9 即当前密码是 PIGCAT110（可登录）；length!=9 表示生效的是其他密码，请检查 .env 或部署平台的 ADMIN_PASSWORD 环境变量'
-  });
+// 凭据扣次：链接令牌与卡密统一在服务端计数，避免前端localStorage被清空后无限复用
+app.post('/api/credential/consume', rateLimitByIp, (req, res) => {
+  const body = req.body || {};
+  const linkToken = String(body.linkToken || '').trim();
+  const cardKey = String(body.cardKey || '').trim().toUpperCase();
+  if (!linkToken && !cardKey) return res.status(400).json({ error: '缺少凭据' });
+
+  const orders = loadJson('orders.json');
+  const order = linkToken
+    ? orders.find(o => o.linkToken === linkToken)
+    : orders.find(o => String(o.cardKey || '').toUpperCase() === cardKey);
+
+  if (order) {
+    const remaining = order.remaining !== undefined ? order.remaining : order.credits;
+    if (remaining <= 0) return res.status(403).json({ error: '使用次数已用完', remaining: 0 });
+    order.remaining = remaining - 1;
+    saveJson('orders.json', orders);
+    return res.json({ ok: true, remaining: order.remaining, credits: order.credits });
+  }
+
+  // 独立卡密：从管理员登记库 keys.json 扣次
+  if (!linkToken && cardKey) {
+    const keys = loadJson('keys.json');
+    const reg = keys.find(k => String(k.cardKey || '').toUpperCase() === cardKey);
+    if (!reg) return res.status(404).json({ error: '凭据无效' });
+    const remaining = reg.remaining !== undefined ? reg.remaining : reg.credits;
+    if (remaining <= 0) return res.status(403).json({ error: '使用次数已用完', remaining: 0 });
+    reg.remaining = remaining - 1;
+    saveJson('keys.json', keys);
+    return res.json({ ok: true, remaining: reg.remaining, credits: reg.credits });
+  }
+
+  return res.status(404).json({ error: '凭据无效' });
 });
 
 // 启动服务器

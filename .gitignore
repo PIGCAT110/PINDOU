@@ -6,3 +6,5 @@ node_modules/
 # 环境变量含敏感密钥，严禁提交
 .env
 .env.*
+# 运行时数据（卡密登记库/订单等），不提交到仓库
+data/keys.json

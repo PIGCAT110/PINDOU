@@ -1241,14 +1241,8 @@ var STYLE_DEFS=[
 /* 拼豆图纸基础提示词（与优化后的用户提示词结合使用） */
 var BEAD_BASE_PROMPT='把参考图转换为适合制作拼豆的简化卡通像素图。目标尺寸为 104×104方格，每个方格严格对应一颗拼豆。保留主体的清晰轮廓、主要颜色和最具辨识度的特征，并将角色可爱卡通化，删除所有细小纹理和无意义细节。使用不超过18种纯色，大色块构成，颜色分布清晰，高对比度，主体居中。所有边缘必须是规则方格硬边，颜色块对齐网格，不允许半格或碎片化像素。无渐变、无抗锯齿、无模糊、无透明、无噪点、无抖动填色、无细密纹理、无复杂光影。最终效果应当像一张可以直接数格制作的拼豆图纸，而不是普通装饰性像素画，最终去除所有网格线。';
 
-var AI_API_DIRECT={
-  baseUrl:'https://api.lk888.ai',
-  apiKey:'sk-193274b7d589597688d4983f4cd8a6d0193c04558e43c2e6',
-  model:'gpt-image-2',
-  prompt:BEAD_BASE_PROMPT,
-  size:'auto',
-  quality:'auto'
-};
+/* 安全说明：AI密钥只保存在服务器端(.env)，前端不再持有任何密钥。
+   所有AI调用统一走 /api/cartoonize 后端代理，并携带凭据供服务端鉴权。 */
 var AI_CARTOONIZE_URL='/api/cartoonize';
 
 /* 构建完整提示词：用户需求 + 拼豆基础提示词 */
@@ -1260,98 +1254,22 @@ function buildFullPrompt(){
 }
 
 function aiCartoonize(imageDataUrl){
-  /* 策略1：直接调用上游AI API（绕过代理，避免POST被拦截） */
-  console.log('[PIGCAT] 尝试直接调用上游AI API...');
-  return aiCartoonizeDirect(imageDataUrl)
-    .catch(function(directErr){
-      console.warn('[PIGCAT] 直接调用失败，尝试后端代理:',directErr.message||directErr);
-      /* 策略2：通过后端代理调用 */
-      return aiCartoonizeViaProxy(imageDataUrl)
-        .catch(function(proxyErr){
-          console.error('[PIGCAT] 后端代理也失败:',proxyErr.message||proxyErr);
-          throw proxyErr;
-        });
-    });
+  /* 统一走后端代理：密钥只在服务器，前端永不接触 */
+  return aiCartoonizeViaProxy(imageDataUrl);
 }
 
-/* 直接调用上游AI API */
-function aiCartoonizeDirect(imageDataUrl){
-  /* 不设置超时，等待AI出图完毕 */
-
-  /* 将data URL转为Blob */
-  var base64Match=imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-  if(!base64Match){
-    return Promise.reject(new Error('无效的图片格式'));
-  }
-  var imageFormat=base64Match[1];
-  var base64Data=base64Match[2];
-  var byteString=atob(base64Data);
-  var byteArray=new Uint8Array(byteString.length);
-  for(var i=0;i<byteString.length;i++){
-    byteArray[i]=byteString.charCodeAt(i);
-  }
-  var mimeType='image/'+imageFormat;
-  var ext=imageFormat==='jpeg'?'jpg':imageFormat;
-  var blob=new Blob([byteArray],{type:mimeType});
-
-  /* 构建multipart/form-data */
-  var formData=new FormData();
-  formData.append('image',blob,'input.'+ext);
-  formData.append('prompt',buildFullPrompt());
-  formData.append('model',AI_API_DIRECT.model);
-  formData.append('size',AI_API_DIRECT.size);
-  formData.append('quality',AI_API_DIRECT.quality);
-
-  console.log('[PIGCAT] 直接调用上游API，图片大小:',(byteArray.length/1024).toFixed(1)+'KB');
-  console.log('[PIGCAT] 使用提示词:',buildFullPrompt().substring(0,100)+'...');
-
-  return fetch(AI_API_DIRECT.baseUrl+'/v1/images/edits',{
-    method:'POST',
-    headers:{
-      'Authorization':'Bearer '+AI_API_DIRECT.apiKey
-    },
-    body:formData
-  }).then(function(resp){
-    console.log('[PIGCAT] 上游API响应状态:',resp.status,resp.ok);
-    if(!resp.ok){
-      return resp.text().then(function(txt){
-        console.error('[PIGCAT] 上游API错误:',txt.substring(0,300));
-        throw new Error('上游API错误 '+resp.status+': '+txt.substring(0,150));
-      });
-    }
-    return resp.json();
-  }).then(function(data){
-    console.log('[PIGCAT] 上游API返回，data结构:',Object.keys(data));
-    if(data.data&&data.data[0]){
-      if(data.data[0].b64_json){
-        console.log('[PIGCAT] 收到base64格式图片');
-        return 'data:image/png;base64,'+data.data[0].b64_json;
-      }else if(data.data[0].url){
-        console.log('[PIGCAT] 收到URL格式图片，正在下载...');
-        return fetch(data.data[0].url).then(function(r){
-          if(!r.ok)throw new Error('下载AI图片失败:'+r.status);
-          return r.arrayBuffer();
-        }).then(function(buf){
-          var b64=Array.from(new Uint8Array(buf)).map(function(b){return String.fromCharCode(b);}).join('');
-          return 'data:image/png;base64,'+btoa(b64);
-        });
-      }
-    }
-    if(data.result)return data.result;
-    throw new Error('无法解析上游API响应');
-  }).catch(function(err){
-    throw err;
-  });
-}
-
-/* 通过后端代理调用（备用） */
+/* 通过后端代理调用（唯一调用方式） */
 function aiCartoonizeViaProxy(imageDataUrl){
-  /* 不设置超时，等待AI出图完毕 */
   console.log('[PIGCAT] 通过后端代理调用AI API...');
   return fetch(AI_CARTOONIZE_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({image:imageDataUrl,prompt:buildFullPrompt()})
+    body:JSON.stringify({
+      image:imageDataUrl,
+      prompt:buildFullPrompt(),
+      linkToken:linkToken||'',
+      cardKey:currentKey||''
+    })
   }).then(function(resp){
     console.log('[PIGCAT] 后端代理响应状态:',resp.status,resp.ok);
     if(!resp.ok){
@@ -1361,6 +1279,11 @@ function aiCartoonizeViaProxy(imageDataUrl){
     }
     return resp.json();
   }).then(function(data){
+    /* 服务端出图成功后已扣次，这里同步剩余次数用于展示 */
+    if(data && data.remaining!==undefined){
+      creditsRemaining=data.remaining;
+      updateUsage();
+    }
     if(data.result)return data.result;
     throw new Error('API返回数据格式错误');
   }).catch(function(err){
@@ -2519,36 +2442,8 @@ function generate(skipCreditCheck){
     return;
   }
   
-  /* 生成时扣除次数（每张图片只扣一次，参数变化不重复扣费） */
-  if(!skipCreditCheck && !creditDeductedForImage){
-    if(linkMode && linkToken){
-      /* 链接模式：服务端消耗 */
-      fetch('/api/link/consume',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({token:linkToken})
-      }).then(function(r){return r.json()}).then(function(data){
-        if(data.ok){
-          creditsRemaining=data.remaining;
-          creditDeductedForImage=true;
-          updateUsage();
-          console.log('[PIGCAT] 链接模式扣除1次，剩余'+creditsRemaining+'次');
-        }else if(data.remaining===0){
-          creditsRemaining=0;
-          updateUsage();
-          toast('使用次数已用完');
-        }
-      }).catch(function(err){
-        console.warn('[PIGCAT] 链接消耗失败:',err);
-      });
-    }else if(currentKey){
-      /* 卡密模式：本地消耗 */
-      creditsRemaining=consumeKeyCredit(currentKey);
-      creditDeductedForImage=true;
-      updateUsage();
-      console.log('[PIGCAT] 生成时扣除1次卡密，剩余'+creditsRemaining+'次');
-    }
-  }
+  /* 次数扣除统一由服务端在 AI 出图成功后完成，前端不再自行扣次，
+     避免清缓存绕过限制，也避免“最后一次生成时先扣成0导致无法出图”。 */
   
   statusEl.textContent='正在生成...';
   var n=+sizeRange.value;
@@ -2964,19 +2859,26 @@ document.querySelector('.usage').onclick=function(){modal.classList.add('open');
 document.getElementById('payBtn').onclick=function(){
   var key=(cardKeyInput.value||'').trim().toUpperCase();
   if(!key){toast('请输入卡密');return;}
-  // 检查是否有效
-  var valid=validateKey(key);
-  if(!valid){toast('卡密无效，请检查输入');return;}
-  // 从localStorage读取剩余次数
-  var remaining=getKeyRemaining(key);
-  if(remaining<=0){toast('该卡密次数已用完，请更换');return;}
-  // 验证成功
-  currentKey=key;
-  creditsRemaining=remaining;
-  updateUsage();
-  modal.classList.remove('open');
-  cardKeyInput.value='';
-  toast('卡密验证成功！剩余 '+creditsRemaining+' 次可用');
+  /* 以服务端登记为准：只有管理员在服务器生成并登记过的卡密才有效 */
+  fetch('/api/verify-key',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({key:key})
+  }).then(function(r){return r.json()}).then(function(data){
+    if(!data.valid){
+      toast(data.expired?'该卡密次数已用完，请更换':'卡密无效，请检查输入');
+      return;
+    }
+    currentKey=key;
+    creditsRemaining=(data.remaining!==undefined?data.remaining:data.credits);
+    updateUsage();
+    modal.classList.remove('open');
+    cardKeyInput.value='';
+    toast('卡密验证成功！剩余 '+creditsRemaining+' 次可用');
+  }).catch(function(err){
+    console.warn('[PIGCAT] 卡密验证失败:',err);
+    toast('验证失败，请检查网络后重试');
+  });
 };
 
 // 回车提交
@@ -3449,7 +3351,7 @@ function optimizePrompt(userPrompt){
   return fetch('/api/optimize-prompt',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({prompt:userPrompt})
+    body:JSON.stringify({prompt:userPrompt,linkToken:linkToken||'',cardKey:currentKey||''})
   }).then(function(resp){
     if(!resp.ok)throw new Error('优化API错误 '+resp.status);
     return resp.json();

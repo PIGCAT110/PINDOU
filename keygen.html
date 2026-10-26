@@ -123,14 +123,25 @@ input[type="number"]{
     <button class="export-btn" id="exportBtn">&#x1F4E5; 导出为TXT文件</button>
   </div>
 
+  <div class="gen-area">
+    <label for="importKeys">登记已有卡密（每次安全升级后，旧的已售卡密需要在这里登记一次）</label>
+    <textarea id="importKeys" placeholder="每行一个卡密，也可用空格或逗号分隔；留空剩余次数则按套餐满额登记"
+      style="width:100%;height:90px;padding:10px;border:2px solid var(--line);border-radius:8px;font-family:var(--font-display);font-size:13px;background:var(--surface);box-shadow:var(--shadow-sm);resize:vertical"></textarea>
+    <div class="gen-row" style="margin-top:12px;margin-bottom:0">
+      <input type="number" id="importRemaining" placeholder="剩余次数" min="0" style="width:100px">
+      <button class="btn btn-mint" id="importBtn">&#x1F4DD; 登记已有卡密</button>
+      <span id="importResult" style="font-size:12px;color:var(--ink-soft)"></span>
+    </div>
+  </div>
+
   <div class="key-list" id="keyList">
     <div class="empty">点击「生成卡密」按钮开始</div>
   </div>
 
   <div class="note">
     卡密格式：PC-XXXX-XXXX-XXXX（X为字母或数字）。<br>
-    将生成的卡密填入 PIGCAT 拼豆工坊的卡密输入框即可使用。每个卡密可生成对应次数，导出高清图纸每次消耗 1 次，用完后自动失效。<br>
-    注意：卡密列表仅保存在当前页面，刷新页面后清空。请及时导出。
+    卡密由服务器生成并登记，只有这里生成的卡密才有效；关闭页面后仍可在服务器保存，刷新不会丢失已登记记录。<br>
+    使用前请先在 /admin.html 登录管理员后台。每个卡密可生成对应次数，用完后自动失效。
   </div>
 </div>
 
@@ -140,40 +151,8 @@ input[type="number"]{
 
 var allKeys=[];
 var copiedCount=0;
-
-/* 随机字符池（排除易混淆字符 O/0/I/1） */
-var CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-function randomChar(){
-  return CHARS[Math.floor(Math.random()*CHARS.length)];
-}
-
-/* 校验码计算：前11位字符的索引之和取模，生成第12位校验字符 */
-function calcChecksum(chars11){
-  var sum=0;
-  for(var i=0;i<chars11.length;i++){
-    sum+=CHARS.indexOf(chars11[i]);
-  }
-  return CHARS[sum%CHARS.length];
-}
-
-function generateKey(plan){
-  /* 首字符为套餐标识，其余10位随机 */
-  var chars11=plan;
-  for(var i=1;i<11;i++){
-    chars11+=randomChar();
-  }
-  /* 第12位为校验码 */
-  var checksum=calcChecksum(chars11);
-  var all12=chars11+checksum;
-  /* 格式化为 PC-XXXX-XXXX-XXXX */
-  var parts=[
-    all12.substring(0,4),
-    all12.substring(4,8),
-    all12.substring(8,12)
-  ];
-  return 'PC-'+parts.join('-');
-}
+/* 管理员登录令牌（在 /admin.html 登录后写入 localStorage） */
+var ADMIN_TOKEN=localStorage.getItem('pigcat_admin_token')||'';
 
 function renderList(){
   var container=document.getElementById('keyList');
@@ -220,20 +199,60 @@ function renderList(){
 }
 
 document.getElementById('genBtn').onclick=function(){
+  if(!ADMIN_TOKEN){
+    alert('请先打开 /admin.html 登录管理员后台，再回到本页生成卡密');
+    return;
+  }
   var count=parseInt(document.getElementById('genCount').value)||1;
   if(count<1)count=1;
   if(count>100)count=100;
-  var existing={};
-  allKeys.forEach(function(k){existing[k]=true;});
-  for(var i=0;i<count;i++){
-    var key;
-    do{
-      key=generateKey(document.getElementById('planSelect').value);
-    }while(existing[key]);
-    existing[key]=true;
-    allKeys.unshift(key);
+  var plan=document.getElementById('planSelect').value;
+  var btn=this;
+  btn.disabled=true;
+  btn.textContent='生成中...';
+  fetch('/api/admin/keys/generate',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN},
+    body:JSON.stringify({plan:plan,count:count})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(!data.keys){
+      alert(data.error||'生成失败，请重新登录管理后台后再试');
+      return;
+    }
+    data.keys.forEach(function(item){ allKeys.unshift(item.cardKey); });
+    renderList();
+  }).catch(function(err){
+    alert('生成失败：'+err.message);
+  }).then(function(){
+    btn.disabled=false;
+    btn.textContent='✨ 生成卡密';
+  });
+};
+
+document.getElementById('importBtn').onclick=function(){
+  if(!ADMIN_TOKEN){
+    alert('请先打开 /admin.html 登录管理员后台，再回到本页');
+    return;
   }
-  renderList();
+  var text=document.getElementById('importKeys').value||'';
+  var list=text.split(/[\s,，;；]+/).map(function(s){return s.trim().toUpperCase();}).filter(function(s){return s.length>0;});
+  if(list.length===0){alert('请先粘贴要登记的卡密');return;}
+  var remVal=document.getElementById('importRemaining').value;
+  var btn=this;btn.disabled=true;
+  var out=document.getElementById('importResult');
+  out.textContent='登记中...';
+  fetch('/api/admin/keys/import',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN},
+    body:JSON.stringify({keys:list,remaining:remVal===''?undefined:parseInt(remVal,10)})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(!data.ok){out.textContent=data.error||'登记失败';return;}
+    out.textContent='成功登记 '+data.added+' 个，已存在 '+data.skipped+' 个，格式错误 '+data.invalid+' 个';
+    list.forEach(function(k){if(allKeys.indexOf(k)===-1)allKeys.unshift(k);});
+    renderList();
+  }).catch(function(err){
+    out.textContent='登记失败：'+err.message;
+  }).then(function(){btn.disabled=false;});
 };
 
 document.getElementById('clearBtn').onclick=function(){
